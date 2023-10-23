@@ -1,6 +1,9 @@
 # Language
 L='C' # C for Chinese / E for English
 
+# VPS ip
+SERVER_IP=''
+
 # Argo
 ARGO_DOMAIN=''
 # For example: ARGO_DOMAIN='argo.xray.com'

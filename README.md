@@ -14,6 +14,7 @@
 
 * * *
 ## 更新信息
+2023.10.23 beta2 1. Add reality; 2. Support temporary tunnels; 3. Support changing tunnel type; 4. Fallback from Argo tunnel to Nginx; 1. 增加 reality; 2. 支持临时隧道; 3. 支持改变隧道类型; 4. 回落从 Argo tunnel 改到 Nginx
 
 2023.10.22 beta1 Argo + Sing-box for vps
 
@@ -21,7 +22,7 @@
 ## 项目特点:
 
 * 在 VPS 中部署 Sing-box，采用的方案为 Argo + Sing-box + WebSocket (+ TLS)；
-* Argo 回落分流处理了 Sing-box 原生不带该功能的尴尬，同时支持主流的 3 种 WS 主流协议: vless /  vmess / trojan + WSS (ws + tls)；
+* Nginx 回落分流处理了 Sing-box 原生不带该功能的尴尬，同时支持 Reality 直连及主流的 3 种 WS 主流协议: reality / vless /  vmess / trojan + WSS (ws + tls)；
 * 正常用 CF 是访问机房回源，Argo 则是每次创建两个反向链接到两个就近机房，然后回源是通过源服务器就近机房回源，其中用户访问机房到源服务器连接的就近机房之间是CF自己的黑盒线路；
 * 使用 CloudFlare 的 Argo 隧道，使用TLS加密通信，可以将应用程序流量安全地传输到Cloudflare网络，提高了应用程序的安全性和可靠性。此外，Argo Tunnel也可以防止IP泄露和DDoS攻击等网络威胁；
 * Argo 是内网穿透的隧道，既 Sing-box 的 inbound 不对外暴露端口增加安全性，也不用做伪装网浪费资源，还支持 Cloudflare 的全部端口，不会死守443被封，同时服务端输出 Argo Ws 数据流，大大简化数据处理流程，提高响应，tls 由 cf 提供，避免多重 tls；
@@ -62,28 +63,30 @@ bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/sba/main/sba.sh)
 
 <img width="1368" alt="image" src="https://github.com/fscarmen/sba/assets/62703343/5e00f0a7-325e-4ce0-9a68-d48f2a96da59">
 
-<img width="1477" alt="image" src="https://github.com/fscarmen/sba/assets/62703343/484f5e6a-1942-42b1-94dc-2ad0f9271836">
-
-<img width="1680" alt="image" src="https://github.com/fscarmen/sba/assets/62703343/0a2ae792-b420-4fa0-950c-15a7a9920643">
+<img width="1644" alt="image" src="https://github.com/fscarmen/sba/assets/62703343/ccbb66f0-7310-46a1-8ccc-2289ae6568f6">
 
 
 ## 主体目录文件及说明
 
 ```
 /etc/sba                                     # 项目主体目录
-├── cloudflared                              # Argo tunnel 主程序
-|-- tunnel.json                              # Argo tunnel Json 信息文件
-|-- tunnel.yml                               # Argo tunnel 配置文件
+|-- cert                                     # 存放证书文件目录
+|   |-- cert.pem                             # SSL/TLS 安全证书文件
+|   `-- private.key                          # SSL/TLS 证书的私钥信息
+|-- logs
+|   `-- box.log                              # sing-box 运行日志文件
 |-- sing-box-conf                            # sing-box server 配置文件目录
 |   |-- inbound.json                         # vless / vmess / trojan + WSS 入站配置文件
 |   `-- outbound.json                        # 出站和路由配置文件，chatGPT 使用 warp ipv6 链式代理出站
 |   |-- 02_route.json                        # 路由配置文件，chatGPT 使用 warp ipv6 链式代理出站
+├── cloudflared                              # Argo tunnel 主程序
+|-- tunnel.json                              # Argo tunnel Json 信息文件
+|-- tunnel.yml                               # Argo tunnel 配置文件
 |-- geosite.db                               # 用于基于域名或网站分类来进行访问控制、内容过滤或安全策略
 |-- geoip.db                                 # 用于根据 IP 地址来进行地理位置策略或访问控制
 |-- language                                 # 存放脚本语言文件，E 为英文，C 为中文
+|-- nginx.conf                               # Nginx 配置文件
 |-- list                                     # 节点信息列表
-|-- logs
-|   `-- box.log                              # sing-box 运行日志文件
 `-- sing-box                                 # sing-box 主程序
 ```
 
