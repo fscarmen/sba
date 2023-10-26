@@ -1,11 +1,10 @@
 #!/usr/bin/env bash
 
 # 当前脚本版本号
-VERSION=beta2
+VERSION=beta3
 
 # 各变量默认值
 GH_PROXY='https://ghproxy.com/'
-UUID_DEFAULT='ffffffff-ffff-ffff-ffff-ffffffffffff'
 WS_PATH_DEFAULT='sba'
 WORK_DIR='/etc/sba'
 TEMP_DIR='/tmp/sba'
@@ -18,14 +17,14 @@ mkdir -p $TEMP_DIR
 
 E[0]="Language:\n 1. English (default) \n 2. 简体中文"
 C[0]="${E[0]}"
-E[1]="1. Add reality; 2. Support temporary tunnels; 3. Support changing tunnel type; 4. Fallback from Argo tunnel to Nginx."
-C[1]="1. 增加 reality; 2. 支持临时隧道; 3. 支持改变隧道类型; 4. 回落从 Argo tunnel 改到 Nginx"
+E[1]="1. The Argo tunnel does not go through Reality's port 443 and goes directly to Nginx's port 3310, reducing latency; 2. Nginx reverses the API url for the temporary tunnel domain, which is now [ https://<ip>/argo ]. "
+C[1]="1. Argo 隧道不过 Reality 的 443 端口，直接到达 Nginx 的 3310 端口，减少延时; 2. Nginx 反代查临时隧道域名 API url，现在是 [ https://<ip>/argo ]"
 E[2]="Project to create Argo tunnels and Sing-box specifically for VPS, detailed:[https://github.com/fscarmen/sba]\n Features:\n\t • Allows the creation of Argo tunnels via Token, Json and ad hoc methods. User can easily obtain the json at https://fscarmen.cloudflare.now.cc .\n\t • Extremely fast installation method, saving users time.\n\t • Support system: Ubuntu, Debian, CentOS, Alpine and Arch Linux 3.\n\t • Support architecture: AMD,ARM and s390x\n"
 C[2]="本项目专为 VPS 添加 Argo 隧道及 Sing-Box,详细说明: [https://github.com/fscarmen/sba]\n 脚本特点:\n\t • 允许通过 Token, Json 及 临时方式来创建 Argo 隧道,用户通过以下网站轻松获取 json: https://fscarmen.cloudflare.now.cc\n\t • 极速安装方式,大大节省用户时间\n\t • 智能判断操作系统: Ubuntu 、Debian 、CentOS 、Alpine 和 Arch Linux,请务必选择 LTS 系统\n\t • 支持硬件结构类型: AMD 和 ARM\n"
 E[3]="Input errors up to 5 times.The script is aborted."
 C[3]="输入错误达5次,脚本退出"
-E[4]="UUID should be 36 characters, please re-enter \(\${a} times remaining\):"
-C[4]="UUID 应为36位字符,请重新输入 \(剩余\${a}次\):"
+E[4]="UUID should be 36 characters, please re-enter \(\$[a-1] times remaining\)"
+C[4]="UUID 应为36位字符,请重新输入 \(剩余\$[a-1]次\)"
 E[5]="The script supports Debian, Ubuntu, CentOS, Alpine or Arch systems only. Feedback: [https://github.com/fscarmen/sba/issues]"
 C[5]="本脚本只支持 Debian、Ubuntu、CentOS、Alpine 或 Arch 系统,问题反馈:[https://github.com/fscarmen/sba/issues]"
 E[6]="Curren operating system is \$SYS.\\\n The system lower than \$SYSTEM \${MAJOR[int]} is not supported. Feedback: [https://github.com/fscarmen/sba/issues]"
@@ -122,18 +121,24 @@ E[51]="Install Sing-box multi-protocol scripts [https://github.com/fscarmen/sing
 C[51]="安装 Sing-box 协议全家桶脚本 [https://github.com/fscarmen/sing-box]"
 E[52]="Memory Usage"
 C[52]="内存占用"
-E[53]="The Sing-box service is detected to be installed. Script exits."
-C[53]="检测到已安装 Sing-box 服务，脚本退出!"
-E[54]="Warp / warp-go was detected to be running. Please close and run this script again."
-C[54]="检测到 warp / warp-go 正在运行，请关闭后再次运行本脚本"
-E[55]="Quicktunnel domain can be obtained from: http://\${SERVER_IP_1}:\$(ps -ef | awk -F '0.0.0.0:' '/cloudflared.*:443/{print \$2}' | awk 'NR==1 {print \$1}')/quicktunnel"
-C[55]="临时隧道域名可以从以下网站获取: http://\${SERVER_IP_1}:\$(ps -ef | awk -F '0.0.0.0:' '/cloudflared.*:443/{print \$2}' | awk 'NR==1 {print \$1}')/quicktunnel"
+E[53]="The Sing-box service is detected to be installed. Please enter the correct server IP:"
+C[53]="检测到已安装 Sing-box 服务，请输入正确的服务器 IP:"
+E[54]="Warp / warp-go was detected to be running. Please enter the correct server IP:"
+C[54]="检测到 warp / warp-go 正在运行，请输入确认的服务器 IP:"
+E[55]="The script runs today: \$TODAY. Total: \$TOTAL"
+C[55]="脚本当天运行次数: \$TODAY，累计运行次数: \$TOTAL"
 E[56]="No server ip, script exits. Feedback:[https://github.com/fscarmen/sing-box/issues]"
 C[56]="没有 server ip，脚本退出，问题反馈:[https://github.com/fscarmen/sing-box/issues]"
 E[57]="Please enter VPS IP \(Default is: \${SERVER_IP_DEFAULT}\):"
 C[57]="请输入 VPS IP \(默认为: \${SERVER_IP_DEFAULT}\):"
 E[58]="Install ArgoX scripts (argo + xray) [https://github.com/fscarmen/argox]"
 C[58]="安装 ArgoX 脚本 (argo + xray) [https://github.com/fscarmen/argox]"
+E[59]="To uninstall Nginx press [y], it is not uninstalled by default:"
+C[59]="如要卸载 Nginx 请按 [y]，默认不卸载:"
+E[60]="Quicktunnel domain can be obtained from: https://\${SERVER_IP_1}/argo"
+C[60]="临时隧道域名可以从以下网站获取: https://\${SERVER_IP_1}/argo"
+E[61]="Enable multiplexing"
+C[61]="可开启多路复用"
 
 # 自定义字体彩色，read 函数
 warning() { echo -e "\033[31m\033[01m$*\033[0m"; }  # 红色
@@ -149,6 +154,13 @@ translate() {
   [ -n "$@" ] && EN="$@"
   ZH=$(wget -qO- -t1T2 "https://translate.google.com/translate_a/t?client=any_client_id_works&sl=en&tl=zh&q=${EN//[[:space:]]/}")
   [[ "$ZH" =~ ^\[\".+\"\]$ ]] && cut -d \" -f2 <<< "$ZH"
+}
+
+# 脚本当天及累计运行次数统计
+statistics_of_run-times() {
+  local COUNT=$(curl --retry 2 -ksm2 "https://hits.seeyoufarm.com/api/count/incr/badge.svg?url=https%3A%2F%2Fraw.githubusercontent.com%2Ffscarmen%2Fsba%2Fmain%2Fsba.sh" 2>&1 | grep -m1 -oE "[0-9]+[ ]+/[ ]+[0-9]+") &&
+  TODAY=$(cut -d " " -f1 <<< "$COUNT") &&
+  TOTAL=$(cut -d " " -f3 <<< "$COUNT")
 }
 
 # 选择中英语言
@@ -186,12 +198,12 @@ check_install() {
     ! grep -q "$WORK_DIR" /etc/systemd/system/sing-box.service && error " $(text 53)\n $(grep 'ExecStart=' /etc/systemd/system/sing-box.service) "
     STATUS[1]=$(text 27) && [ "$(systemctl is-active sing-box)" = 'active' ] && STATUS[1]=$(text 28)
   fi
-  [[ ${STATUS[0]} = "$(text 26)" ]] && [ ! -s $WORK_DIR/cloudflared ] && 
-  { 
+  [[ ${STATUS[0]} = "$(text 26)" ]] && [ ! -s $WORK_DIR/cloudflared ] &&
+  {
     wget -qO $TEMP_DIR/cloudflared ${GH_PROXY}https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-$ARGO_ARCH >/dev/null 2>&1
     chmod +x $TEMP_DIR/cloudflared >/dev/null 2>&1
   }&
-  [[ ${STATUS[1]} = "$(text 26)" ]] && [ ! -s $WORK_DIR/sing-box ] && 
+  [[ ${STATUS[1]} = "$(text 26)" ]] && [ ! -s $WORK_DIR/sing-box ] &&
   {
     local SING_BOX_LATEST=$(wget -qO- "https://api.github.com/repos/SagerNet/sing-box/releases/latest" | grep "tag_name" | sed "s@.*\"v\(.*\)\",@\1@g")
     SING_BOX_LATEST=${SING_BOX_LATEST:-'1.5.3'}
@@ -217,8 +229,8 @@ EOF
       rc-update add local >/dev/null 2>&1
     else
       systemctl enable --now $APP
-      [ "$APP" = 'sing-box' ] && nginx -c $WORK_DIR/nginx.conf
     fi
+    [ $(ps -ef | grep "$WORK_DIR/nginx" | wc -l) -le 1 ] && nginx -c $WORK_DIR/nginx.conf
 
   elif [ "$ENABLE_DISABLE" = 'disable' ]; then
     if [ "$SYSTEM" = 'Alpine' ]; then
@@ -226,8 +238,8 @@ EOF
       rm -f /etc/local.d/$APP.start
     else
       systemctl disable --now $APP
-      kill -9 $(ss -nltp | grep '3010.*nginx' | grep -oE 'pid=[0-9]+' | awk -F "=" '{print $2}' | tr '\n' ' ') >/dev/null 2>&1
     fi
+    kill -9 $(ss -nltp | grep '3010.*nginx' | grep -oE 'pid=[0-9]+' | awk -F "=" '{print $2}' | tr '\n' ' ') >/dev/null 2>&1
   fi
 }
 
@@ -281,10 +293,22 @@ check_system_ip() {
   fi
 }
 
-# 定义 Argo 变量
+# 定义 Argo 变量，遇到使用 warp 的话，要求输入正确的 IP
 argo_variable() {
   if grep -qi 'cloudflare' <<< "$ASNORG4$ASNORG6"; then
-    error "\n $(text 54) \n"
+    local a=6
+    until [ -n "$SERVER_IP" ]; do
+      ((a--)) || true
+      [ "$a" = 0 ] && error "\n $(text 3) \n"
+      reading "\n $(text 54) " SERVER_IP
+    done
+    if [[ "$SERVER_IP" =~ : ]]; then
+      WARP_ENDPOINT=2606:4700:d0::a29f:c101
+      DOMAIN_STRATEG=prefer_ipv6
+    else
+      WARP_ENDPOINT=162.159.193.10
+      DOMAIN_STRATEG=prefer_ipv4
+    fi
   elif [ -n "$WAN4" ]; then
     SERVER_IP_DEFAULT=$WAN4
     WARP_ENDPOINT=162.159.193.10
@@ -344,13 +368,15 @@ sing_box_variable() {
     esac
   fi
 
-  [ -z "$UUID" ] && reading "\n $(text_eval 12) " UUID
-  local a=5
-  until [[ -z "$UUID" || "$UUID" =~ ^[A-F0-9a-f]{8}-[A-F0-9a-f]{4}-[A-F0-9a-f]{4}-[A-F0-9a-f]{4}-[A-F0-9a-f]{12}$ ]]; do
+  local a=6
+  until [[ "$UUID" =~ ^[A-F0-9a-f]{8}-[A-F0-9a-f]{4}-[A-F0-9a-f]{4}-[A-F0-9a-f]{4}-[A-F0-9a-f]{12}$ ]]; do
     (( a-- )) || true
-    [ "$a" = 0 ] && error " $(text 3) " || reading " $(text_eval 4) " UUID
+    [ "$a" = 0 ] && error "\n $(text 3) \n"
+    UUID_DEFAULT=$(cat /proc/sys/kernel/random/uuid)
+    reading "\n $(text_eval 12) " UUID
+    UUID=${UUID:-"$UUID_DEFAULT"}
+    [[ ! "$UUID" =~ ^[A-F0-9a-f]{8}-[A-F0-9a-f]{4}-[A-F0-9a-f]{4}-[A-F0-9a-f]{4}-[A-F0-9a-f]{12}$ && "$a" != 1 ]] && warning "\n $(text_eval 4) "
   done
-  UUID=${UUID:-"$UUID_DEFAULT"}
 
   [ -z "$WS_PATH" ] && reading "\n $(text_eval 13) " WS_PATH
   local a=5
@@ -406,6 +432,114 @@ check_dependencies() {
   fi
 }
 
+# Nginx 配置文件
+json_nginx() {
+  WS_PATH=${WS_PATH:-"$(grep -m1 'path.*vm' $WORK_DIR/sing-box-conf/inbound.json | sed "s@.*/\(.*\)-vm.*@\1@g")"}
+  SERVER_IP=${SERVER_IP:-"$(sed -r "s/\x1B\[[0-9;]*[mG]//g" $WORK_DIR/list | sed -n "s/.*{name.*server:[ ]*\([^,]\+\).*/\1/pg" | sed -n '1p')"}
+  [[ "$SERVER_IP" =~ : ]] && REVERSE_IP="[$SERVER_IP]" || REVERSE_IP="$SERVER_IP"
+  cat > $WORK_DIR/nginx.conf << EOF
+user  root;
+worker_processes  auto;
+
+error_log  /dev/null;
+pid        /var/run/nginx.pid;
+
+events {
+    worker_connections  1024;
+}
+
+
+http {
+    include       /etc/nginx/mime.types;
+    default_type  application/octet-stream;
+
+    log_format  main  '\$remote_addr - \$remote_user [\$time_local] "\$request" '
+                      '\$status \$body_bytes_sent "\$http_referer" '
+                      '"\$http_user_agent" "\$http_x_forwarded_for"';
+
+    access_log  /dev/null;
+
+    sendfile        on;
+    #tcp_nopush     on;
+
+    keepalive_timeout  65;
+
+    #gzip  on;
+
+    #include /etc/nginx/conf.d/*.conf;
+
+  server
+    {
+      listen 127.0.0.1:3010 ssl http2; # sing-box backend
+      # http2 on;
+      server_name $TLS_SERVER;
+
+      ssl_certificate            $WORK_DIR/cert/cert.pem;
+      ssl_certificate_key        $WORK_DIR/cert/private.key;
+      ssl_protocols              TLSv1.3;
+      ssl_session_tickets        on;
+      ssl_stapling               off;
+      ssl_stapling_verify        off;
+
+      # 反代 sing-box vless websocket
+      location /$WS_PATH-vl {
+        if (\$http_upgrade != "websocket") {
+           return 404;
+        }
+        proxy_pass                          http://127.0.0.1:3011;
+        proxy_http_version                  1.1;
+        proxy_set_header Upgrade            \$http_upgrade;
+        proxy_set_header Connection         "upgrade";
+        proxy_set_header X-Real-IP          \$remote_addr;
+        proxy_set_header X-Forwarded-For    \$proxy_add_x_forwarded_for;
+        proxy_set_header Host               \$host;
+        proxy_redirect                      off;
+      }
+
+      # 反代 sing-box websocket
+      location /$WS_PATH-vm {
+        if (\$http_upgrade != "websocket") {
+           return 404;
+        }
+        proxy_pass                          http://127.0.0.1:3012;
+        proxy_http_version                  1.1;
+        proxy_set_header Upgrade            \$http_upgrade;
+        proxy_set_header Connection         "upgrade";
+        proxy_set_header X-Real-IP          \$remote_addr;
+        proxy_set_header X-Forwarded-For    \$proxy_add_x_forwarded_for;
+        proxy_set_header Host               \$host;
+        proxy_redirect                      off;
+      }
+
+      location /$WS_PATH-tr {
+        if (\$http_upgrade != "websocket") {
+           return 404;
+        }
+        proxy_pass                          http://127.0.0.1:3013;
+        proxy_http_version                  1.1;
+        proxy_set_header Upgrade            \$http_upgrade;
+        proxy_set_header Connection         "upgrade";
+        proxy_set_header X-Real-IP          \$remote_addr;
+        proxy_set_header X-Forwarded-For    \$proxy_add_x_forwarded_for;
+        proxy_set_header Host               \$host;
+        proxy_redirect                      off;
+      }
+EOF
+  [ -n "$METRICS_PORT" ] && cat >> $WORK_DIR/nginx.conf << EOF
+
+      location /argo {
+        proxy_pass http://$REVERSE_IP:$METRICS_PORT/quicktunnel;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+      }
+EOF
+  cat >> $WORK_DIR/nginx.conf << EOF
+    }
+}
+EOF
+}
+
 # Json 生成两个配置文件
 json_argo() {
   [ ! -s $WORK_DIR/tunnel.json ] && echo $ARGO_JSON > $WORK_DIR/tunnel.json
@@ -416,7 +550,7 @@ protocol: http2
 
 ingress:
   - hostname: ${ARGO_DOMAIN}
-    service: https://localhost:443
+    service: https://localhost:3010
     originRequest:
       noTLSVerify: true
   - service: http_status:404
@@ -442,7 +576,7 @@ install_sba() {
     ARGO_RUNS="$WORK_DIR/cloudflared tunnel --edge-ip-version auto --protocol http2 run --token ${ARGO_TOKEN}"
   else
     METRICS_PORT=$(shuf -i 1000-65535 -n 1)
-    ARGO_RUNS="$WORK_DIR/cloudflared tunnel --edge-ip-version auto --no-autoupdate --protocol http2 --no-tls-verify --metrics 0.0.0.0:$METRICS_PORT --url https://localhost:443"
+    ARGO_RUNS="$WORK_DIR/cloudflared tunnel --edge-ip-version auto --no-autoupdate --protocol http2 --no-tls-verify --metrics 0.0.0.0:$METRICS_PORT --url https://localhost:3010"
   fi
 
   # 生成100年的自签证书
@@ -470,7 +604,7 @@ EOF
   local i=1
   [ ! -s $WORK_DIR/sing-box ] && wait && while [ "$i" -le 20 ]; do [ -s $TEMP_DIR/sing-box ] && mv $TEMP_DIR/sing-box $WORK_DIR && break; ((i++)); sleep 2; done
   [ "$i" -ge 20 ] && local APP=Sing-box && error "\n $(text_eval 48) "
-  
+
   # 生成 reality 的公私钥
   REALITY_KEYPAIR=$($WORK_DIR/sing-box generate reality-keypair)
   [ -z "$REALITY_PRIVATE" ] && REALITY_PRIVATE=$(awk '/PrivateKey/{print $NF}' <<< "$REALITY_KEYPAIR")
@@ -568,24 +702,6 @@ EOF
                     "password":"${UUID}"
                 }
             ]
-        },
-        {
-            "type":"vless",
-            "tag":"grpc-in",
-            "listen":"127.0.0.1",
-            "listen_port":3014,
-            "sniff":true,
-            "sniff_override_destination":true,
-            "transport":{
-                "type":"grpc",
-                "service_name":"${WS_PATH}-grpc"
-            },
-            "users":[
-                {
-                    "uuid":"${UUID}",
-                    "flow":""
-                }
-            ]
         }
     ]
 }
@@ -675,112 +791,8 @@ LimitNOFILE=infinity
 WantedBy=multi-user.target
 EOF
 
-# Nginx 配置文件
-cat > $WORK_DIR/nginx.conf << EOF
-user  root;
-worker_processes  auto;
-
-error_log  /dev/null;
-pid        /var/run/nginx.pid;
-
-events {
-    worker_connections  1024;
-}
-
-
-http {
-    include       /etc/nginx/mime.types;
-    default_type  application/octet-stream;
-
-    log_format  main  '\$remote_addr - \$remote_user [\$time_local] "\$request" '
-                      '\$status \$body_bytes_sent "\$http_referer" '
-                      '"\$http_user_agent" "\$http_x_forwarded_for"';
-
-    access_log  /dev/null;
-
-    sendfile        on;
-    #tcp_nopush     on;
-
-    keepalive_timeout  65;
-
-    #gzip  on;
-
-    #include /etc/nginx/conf.d/*.conf;
-
-  server
-    {
-      listen 127.0.0.1:3010 ssl http2; # sing-box backend
-      # http2 on;
-      server_name $TLS_SERVER;
-
-      ssl_certificate            $WORK_DIR/cert/cert.pem;
-      ssl_certificate_key        $WORK_DIR/cert/private.key;
-      ssl_protocols              TLSv1.3;
-      ssl_session_tickets        on;
-      ssl_stapling               off;
-      ssl_stapling_verify        off;
-
-      # 反代 sing-box vless websocket
-      location /$WS_PATH-vl {
-        if (\$http_upgrade != "websocket") {
-           return 404;
-        }
-        proxy_pass                          http://127.0.0.1:3011;
-        proxy_http_version                  1.1;
-        proxy_set_header Upgrade            \$http_upgrade;
-        proxy_set_header Connection         "upgrade";
-        proxy_set_header X-Real-IP          \$remote_addr;
-        proxy_set_header X-Forwarded-For    \$proxy_add_x_forwarded_for;
-        proxy_set_header Host               \$host;
-        proxy_redirect                      off;
-      }
-
-      # 反代 sing-box websocket
-      location /$WS_PATH-vm {
-        if (\$http_upgrade != "websocket") {
-           return 404;
-        }
-        proxy_pass                          http://127.0.0.1:3012;
-        proxy_http_version                  1.1;
-        proxy_set_header Upgrade            \$http_upgrade;
-        proxy_set_header Connection         "upgrade";
-        proxy_set_header X-Real-IP          \$remote_addr;
-        proxy_set_header X-Forwarded-For    \$proxy_add_x_forwarded_for;
-        proxy_set_header Host               \$host;
-        proxy_redirect                      off;
-      }
-
-      location /$WS_PATH-tr {
-        if (\$http_upgrade != "websocket") {
-           return 404;
-        }
-        proxy_pass                          http://127.0.0.1:3013;
-        proxy_http_version                  1.1;
-        proxy_set_header Upgrade            \$http_upgrade;
-        proxy_set_header Connection         "upgrade";
-        proxy_set_header X-Real-IP          \$remote_addr;
-        proxy_set_header X-Forwarded-For    \$proxy_add_x_forwarded_for;
-        proxy_set_header Host               \$host;
-        proxy_redirect                      off;
-      }
-
-      location /$WS_PATH-grpc {
-        if (\$content_type !~ "application/grpc") {
-          return 404;
-        }
-        grpc_pass                           grpc://127.0.0.1:3014;
-        client_body_buffer_size             1m;
-        #keepalive_time                     1071906480m;
-        keepalive_requests                  4294967296;
-        client_body_timeout                 1071906480m;
-        send_timeout                        1071906480m;
-        lingering_close                     always;
-        grpc_read_timeout                   1071906480m;
-        grpc_send_timeout                   1071906480m;
-      }
-    }
-}
-EOF
+  # 生成 Nginx 配置文件
+  json_nginx
 
   # 再次检测状态，运行 Argo 和 Sing-box
   check_install
@@ -828,7 +840,7 @@ export_list() {
     local a=5
     until [[ -n "$ARGO_DOMAIN" || "$a" = 0 ]]; do
       sleep 2
-      ARGO_DOMAIN=$(wget -qO- http://localhost:$(ps -ef | awk -F '0.0.0.0:' '/cloudflared.*:443/{print $2}' | awk 'NR==1 {print $1}')/quicktunnel | cut -d\" -f4)
+      ARGO_DOMAIN=$(wget -qO- http://localhost:$(ps -ef | awk -F '0.0.0.0:' '/cloudflared.*:3010/{print $2}' | awk 'NR==1 {print $1}')/quicktunnel | cut -d\" -f4)
       ((a--)) || true
     done
   else
@@ -839,7 +851,7 @@ export_list() {
   SERVER=${SERVER:-"$(sed -n "/type: vmess/s/.*server:[ ]*\([^,]*\),.*/\1/gp" $WORK_DIR/list)"}
   UUID=${UUID:-"$(grep 'password' $WORK_DIR/sing-box-conf/inbound.json | awk -F \" 'NR==1{print $4}')"}
   WS_PATH=${WS_PATH:-"$(grep -m1 'path.*vm' $WORK_DIR/sing-box-conf/inbound.json | sed "s@.*/\(.*\)-vm.*@\1@g")"}
-  NODE_NAME=${NODE_NAME:-"$(sed -n "/type:[ ]*vmess/s/.*{name:[ ]*[\"]*\([^-]*\)-.*/\1/gp" $WORK_DIR/list)"}
+  NODE_NAME=${NODE_NAME:-"$(sed -n "/type:[ ]*vmess/s/.*{name:[ ]*[\"]*\(.*\)-Vm.*/\1/gp" $WORK_DIR/list)"}
 
   # IPv6 时的 IP 处理
   if [[ "$SERVER_IP" =~ : ]]; then
@@ -851,7 +863,7 @@ export_list() {
   fi
 
   # 若为临时隧道，处理查询方法
-  grep -q 'metrics.*url' /etc/systemd/system/argo.service && QUICK_TUNNEL_URL=$(text_eval 55)
+  grep -q 'metrics.*url' /etc/systemd/system/argo.service && QUICK_TUNNEL_URL=$(text_eval 60)
 
   # 生成配置文件
   VMESS="{ \"v\": \"2\", \"ps\": \"${NODE_NAME}-Vm\", \"add\": \"${SERVER}\", \"port\": \"443\", \"id\": \"${UUID}\", \"aid\": \"0\", \"scy\": \"none\", \"net\": \"ws\", \"type\": \"none\", \"host\": \"${ARGO_DOMAIN}\", \"path\": \"/${WS_PATH}-vm\", \"tls\": \"tls\", \"sni\": \"${ARGO_DOMAIN}\", \"alpn\": \"\" }"
@@ -869,7 +881,9 @@ vless://${UUID}@${SERVER}:443?encryption=none&security=tls&sni=${ARGO_DOMAIN}&ty
 
 vmess://$(base64 -w0 <<< $VMESS | sed "s/Cg==$//")
 
-trojan://${UUID}@${SERVER}:443?security=tls&sni=${ARGO_DOMAIN}&type=ws&host=${ARGO_DOMAIN}&path=%2F${WS_PATH}-tr#${NODE_NAME}-Tr")
+trojan://${UUID}@${SERVER}:443?security=tls&sni=${ARGO_DOMAIN}&type=ws&host=${ARGO_DOMAIN}&path=%2F${WS_PATH}-tr#${NODE_NAME}-Tr
+
++++++ $(text 61) +++++")
 
 *******************************************
 ┌────────────────┐
@@ -878,13 +892,13 @@ trojan://${UUID}@${SERVER}:443?security=tls&sni=${ARGO_DOMAIN}&type=ws&host=${AR
 │                │
 └────────────────┘
 ----------------------------
-$(hint "vless://$(base64 -w0 <<< auto:$UUID@${SERVER_IP_2}:443 | sed "s/Cg==$//")?remarks=${NODE_NAME}%20vless-reality-vision&obfs=none&tls=1&peer=$TLS_SERVER&xtls=2&pbk=$REALITY_PUBLIC
+$(hint "vless://$(base64 -w0 <<< auto:${UUID}@${SERVER_IP_2}:443 | sed "s/Cg==$//")?remarks=${NODE_NAME}%20vless-reality-vision&obfs=none&tls=1&peer=$TLS_SERVER&mux=1&xtls=2&pbk=$REALITY_PUBLIC
 
-vless://${UUID}@${SERVER}:443?encryption=none&security=tls&type=ws&host=${ARGO_DOMAIN}&path=/${WS_PATH}-vl&sni=${ARGO_DOMAIN}#${NODE_NAME}-Vl
+vless://$(base64 -w0 <<< auto:${UUID}@${SERVER}:443 | sed "s/Cg==$//")?remarks=${NODE_NAME}-Vl&obfsParam=${ARGO_DOMAIN}&path=/${WS_PATH}-vl?ed=2048&obfs=websocket&tls=1&peer=${ARGO_DOMAIN}&mux=1
 
-vmess://$(base64 -w0 <<< none:${UUID}@${SERVER}:443 | sed "s/Cg==$//")?remarks=${NODE_NAME}-Vm&obfsParam=${ARGO_DOMAIN}&path=/${WS_PATH}-vm&obfs=websocket&tls=1&peer=${ARGO_DOMAIN}&alterId=0
+vmess://$(base64 -w0 <<< none:${UUID}@${SERVER}:443 | sed "s/Cg==$//")?remarks=${NODE_NAME}-Vm&obfsParam=${ARGO_DOMAIN}&path=/${WS_PATH}-vm?ed=2048&obfs=websocket&tls=1&peer=${ARGO_DOMAIN}&mux=1&alterId=0
 
-trojan://${UUID}@${SERVER}:443?peer=${ARGO_DOMAIN}&plugin=obfs-local;obfs=websocket;obfs-host=${ARGO_DOMAIN};obfs-uri=/${WS_PATH}-tr#${NODE_NAME}-Tr")
+trojan://${UUID}@${SERVER}:443?peer=${ARGO_DOMAIN}&mux=1&plugin=obfs-local;obfs=websocket;obfs-host=${ARGO_DOMAIN};obfs-uri=/${WS_PATH}-tr?ed=2048#${NODE_NAME}-Tr")
 
 *******************************************
 ┌────────────────┐
@@ -893,19 +907,22 @@ trojan://${UUID}@${SERVER}:443?peer=${ARGO_DOMAIN}&plugin=obfs-local;obfs=websoc
 │                │
 └────────────────┘
 ----------------------------
-$(info "- {name: \"${NODE_NAME} vless-reality-vision\", type: vless, server: ${SERVER_IP}, port: 443, uuid: ${UUID}, network: tcp, udp: true, tls: true, servername: ${TLS_SERVER}, flow: xtls-rprx-vision, client-fingerprint: chrome, reality-opts: {public-key: ${REALITY_PUBLIC}, short-id: \"\"} }
+$(info "- {name: \"${NODE_NAME} vless-reality-vision\", type: vless, server: ${SERVER_IP}, port: 443, uuid: ${UUID}, network: tcp, udp: true, tls: true, servername: ${TLS_SERVER}, flow: xtls-rprx-vision, client-fingerprint: chrome, reality-opts: {public-key: ${REALITY_PUBLIC}, short-id: \"\"}, smux: { enabled: true, protocol: 'h2mux', padding: true, max-connections: '0', min-streams: '0', max-streams: '8', statistic: true, only-tcp: false } }
 
-- {name: \"${NODE_NAME}-Vl\", type: vless, server: ${SERVER}, port: 443, uuid: ${UUID}, tls: true, servername: ${ARGO_DOMAIN}, skip-cert-verify: false, network: ws, ws-opts: { path: /${WS_PATH}-vl, max-early-data: 2048, early-data-header-name: Sec-WebSocket-Protocol, headers: { Host: ${ARGO_DOMAIN}}}, udp: true }
+- {name: \"${NODE_NAME}-Vl\", type: vless, server: ${SERVER}, port: 443, uuid: ${UUID}, tls: true, servername: ${ARGO_DOMAIN}, skip-cert-verify: false, network: ws, ws-opts: { path: /${WS_PATH}-vl?ed=2048, max-early-data: 2048, early-data-header-name: Sec-WebSocket-Protocol, headers: { Host: ${ARGO_DOMAIN}}}, udp: true, smux: { enabled: true, protocol: 'h2mux', padding: true, max-connections: '0', min-streams: '0', max-streams: '8', statistic: true, only-tcp: false } }
 
-- {name: \"${NODE_NAME}-Vm\", type: vmess, server: ${SERVER}, port: 443, uuid: ${UUID}, alterId: 0, cipher: none, tls: true, skip-cert-verify: true, network: ws, ws-opts: { path: /${WS_PATH}-vm, max-early-data: 2048, early-data-header-name: Sec-WebSocket-Protocol, headers: {Host: ${ARGO_DOMAIN}}}, udp: true }
+- {name: \"${NODE_NAME}-Vm\", type: vmess, server: ${SERVER}, port: 443, uuid: ${UUID}, alterId: 0, cipher: none, tls: true, skip-cert-verify: true, network: ws, ws-opts: { path: /${WS_PATH}-vm?ed=2048, max-early-data: 2048, early-data-header-name: Sec-WebSocket-Protocol, headers: {Host: ${ARGO_DOMAIN}}}, udp: true, smux: { enabled: true, protocol: 'h2mux', padding: true, max-connections: '0', min-streams: '0', max-streams: '8', statistic: true, only-tcp: false } }
 
-- {name: \"${NODE_NAME}-Tr\", type: trojan, server: ${SERVER}, port: 443, password: ${UUID}, udp: true, tls: true, sni: ${ARGO_DOMAIN}, skip-cert-verify: false, network: ws, ws-opts: { path: /${WS_PATH}-tr, max-early-data: 2048, early-data-header-name: Sec-WebSocket-Protocol, headers: { Host: ${ARGO_DOMAIN} } } }")
+- {name: \"${NODE_NAME}-Tr\", type: trojan, server: ${SERVER}, port: 443, password: ${UUID}, udp: true, tls: true, sni: ${ARGO_DOMAIN}, skip-cert-verify: false, network: ws, ws-opts: { path: /${WS_PATH}-tr?ed=2048, max-early-data: 2048, early-data-header-name: Sec-WebSocket-Protocol, headers: { Host: ${ARGO_DOMAIN} } }, smux: { enabled: true, protocol: 'h2mux', padding: true, max-connections: '0', min-streams: '0', max-streams: '8', statistic: true, only-tcp: false } }")
 
 *******************************************
 
 $(hint " ${QUICK_TUNNEL_URL} ")
 EOF
   cat $WORK_DIR/list
+
+  # 显示脚本使用情况数据
+  hint "\n $(text_eval 55) \n"
 }
 
 # 更换 Argo 隧道类型
@@ -917,7 +934,7 @@ change_argo() {
   case $(grep "ExecStart" /etc/systemd/system/argo.service) in
     *--config* ) ARGO_TYPE='Json'; ARGO_DOMAIN="$(grep -m1 '^vless' $WORK_DIR/list | sed "s@.*host=\(.*\)&.*@\1@g")" ;;
     *--token* ) ARGO_TYPE='Token'; ARGO_DOMAIN="$(grep -m1 '^vless' $WORK_DIR/list | sed "s@.*host=\(.*\)&.*@\1@g")" ;;
-    * ) ARGO_TYPE='Try'; ARGO_DOMAIN=$(wget -qO- http://localhost:$(ps -ef | awk -F '0.0.0.0:' '/cloudflared.*:443/{print $2}' | awk 'NR==1 {print $1}')/quicktunnel | cut -d\" -f4) ;;
+    * ) ARGO_TYPE='Try'; ARGO_DOMAIN=$(wget -qO- http://localhost:$(ps -ef | awk -F '0.0.0.0:' '/cloudflared.*:3010/{print $2}' | awk 'NR==1 {print $1}')/quicktunnel | cut -d\" -f4) ;;
   esac
 
   hint "\n $(text_eval 40) \n"
@@ -927,8 +944,7 @@ change_argo() {
       1 ) cmd_systemctl disable argo
           [ -s $WORK_DIR/tunnel.json ] && rm -f $WORK_DIR/tunnel.{json,yml}
           METRICS_PORT=$(shuf -i 1000-65535 -n 1)
-          sed -i "s@ExecStart.*@ExecStart=$WORK_DIR/cloudflared tunnel --edge-ip-version auto --protocol http2 --no-autoupdate --protocol http2 --no-tls-verify --metrics 0.0.0.0:$METRICS_PORT --url https://localhost:443@g" /etc/systemd/system/argo.service
-          cmd_systemctl enable argo
+          sed -i "s@ExecStart.*@ExecStart=$WORK_DIR/cloudflared tunnel --edge-ip-version auto --protocol http2 --no-autoupdate --protocol http2 --no-tls-verify --metrics 0.0.0.0:$METRICS_PORT --url https://localhost:3010@g" /etc/systemd/system/argo.service
           ;;
       2 ) argo_variable
           cmd_systemctl disable argo
@@ -940,12 +956,13 @@ change_argo() {
             json_argo
             sed -i "s@ExecStart.*@ExecStart=$WORK_DIR/cloudflared tunnel --edge-ip-version auto --config $WORK_DIR/tunnel.yml run@g" /etc/systemd/system/argo.service
           fi
-          cmd_systemctl enable argo
           ;;
       * ) exit 0
           ;;
     esac
 
+    json_nginx
+    cmd_systemctl enable argo
     export_list
 }
 
@@ -954,6 +971,8 @@ uninstall() {
     cmd_systemctl disable argo
     cmd_systemctl disable sing-box
     rm -rf $WORK_DIR $TEMP_DIR /etc/systemd/system/{sing-box,argo}.service
+    [ $(ps -ef | grep 'nginx' | wc -l) -le 1 ] && reading " $(text 59) " REMOVE_NGINX
+    [[ "$REMOVE_NGINX" = [Yy] ]] && ${PACKAGE_UNINSTALL[int]} nginx
     info "\n $(text 16) \n"
   else
     error "\n $(text 15) \n"
@@ -1008,7 +1027,7 @@ menu_setting() {
   if [[ ${STATUS[*]} =~ $(text 27)|$(text 28) ]]; then
     if [ -s $WORK_DIR/cloudflared ]; then
       ARGO_VERSION=$($WORK_DIR/cloudflared -v | awk '{print $3}' | sed "s@^@Version: &@g")
-      [ $(ps -ef | grep "metrics.*:443" | wc -l) -gt 1 ] && ARGO_CHECKHEALTH="$(text 46): $(wget -qO- http://localhost:$(ps -ef | awk -F '0.0.0.0:' '/cloudflared.*:443/{print $2}' | awk 'NR==1 {print $1}')/healthcheck | sed "s/OK/$(text 37)/")"
+      [ $(ps -ef | grep "metrics.*:3010" | wc -l) -gt 1 ] && ARGO_CHECKHEALTH="$(text 46): $(wget -qO- http://localhost:$(ps -ef | awk -F '0.0.0.0:' '/cloudflared.*:3010/{print $2}' | awk 'NR==1 {print $1}')/healthcheck | sed "s/OK/$(text 37)/")"
     fi
     [ -s $WORK_DIR/sing-box ] && SING_BOX_VERSION=$($WORK_DIR/sing-box version | awk '/version/{print $NF}' | sed "s@^@Version: &@g")
     [ "$SYSTEM" = 'Alpine' ] && PS_LIST=$(ps -ef) || PS_LIST=$(ps -ef | grep -E 'sing-box|cloudflared' | awk '{ $1=""; sub(/^ */, ""); print $0 }')
@@ -1066,6 +1085,8 @@ menu() {
     warning " $(text 36) [0-$((${#OPTION[*]}-1))] " && sleep 1 && menu
   fi
 }
+
+statistics_of_run-times
 
 # 传参
 [[ "$*" =~ -[Ee] ]] && L=E

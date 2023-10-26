@@ -14,6 +14,8 @@
 
 * * *
 ## 更新信息
+2023.10.24 beta3 1. The Argo tunnel does not go through Reality's port 443 and goes directly to Nginx's port 3310, reducing latency; 2. Nginx reverses the API url for the temporary tunnel domain, which is now [ https://<ip>/argo ]; 1. Argo 隧道不过 Reality 的 443 端口，直接到达 Nginx 的 3310 端口，减少延时; 2. Nginx 反代查临时隧道域名 API url，现在是 [ https://<ip>/argo ]
+
 2023.10.23 beta2 1. Add reality; 2. Support temporary tunnels; 3. Support changing tunnel type; 4. Fallback from Argo tunnel to Nginx; 1. 增加 reality; 2. 支持临时隧道; 3. 支持改变隧道类型; 4. 回落从 Argo tunnel 改到 Nginx
 
 2023.10.22 beta1 Argo + Sing-box for vps
@@ -24,7 +26,7 @@
 * 在 VPS 中部署 Sing-box，采用的方案为 Argo + Sing-box + WebSocket (+ TLS)；
 * Nginx 回落分流处理了 Sing-box 原生不带该功能的尴尬，同时支持 Reality 直连及主流的 3 种 WS 主流协议: reality / vless /  vmess / trojan + WSS (ws + tls)；
 * 正常用 CF 是访问机房回源，Argo 则是每次创建两个反向链接到两个就近机房，然后回源是通过源服务器就近机房回源，其中用户访问机房到源服务器连接的就近机房之间是CF自己的黑盒线路；
-* 使用 CloudFlare 的 Argo 隧道，使用TLS加密通信，可以将应用程序流量安全地传输到Cloudflare网络，提高了应用程序的安全性和可靠性。此外，Argo Tunnel也可以防止IP泄露和DDoS攻击等网络威胁；
+* 支持多路复用，减少 TCP 的握手延迟；
 * Argo 是内网穿透的隧道，既 Sing-box 的 inbound 不对外暴露端口增加安全性，也不用做伪装网浪费资源，还支持 Cloudflare 的全部端口，不会死守443被封，同时服务端输出 Argo Ws 数据流，大大简化数据处理流程，提高响应，tls 由 cf 提供，避免多重 tls；
 * Argo 支持通过 Token 或者 cloudflared Cli 方式申请的固定域名，直接优选 + 隧道，不需要申请域名证书；
 * 内置 warp 链式代理解锁 chatGPT；
