@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # 当前脚本版本号
-VERSION=beta3
+VERSION=beta4
 
 # 各变量默认值
 GH_PROXY='https://ghproxy.com/'
@@ -17,16 +17,16 @@ mkdir -p $TEMP_DIR
 
 E[0]="Language:\n 1. English (default) \n 2. 简体中文"
 C[0]="${E[0]}"
-E[1]="1. The Argo tunnel does not go through Reality's port 443 and goes directly to Nginx's port 3310, reducing latency; 2. Nginx reverses the API url for the temporary tunnel domain, which is now [ https://<ip>/argo ]. "
-C[1]="1. Argo 隧道不过 Reality 的 443 端口，直接到达 Nginx 的 3310 端口，减少延时; 2. Nginx 反代查临时隧道域名 API url，现在是 [ https://<ip>/argo ]"
+E[1]="1. After installing, add [sb] shortcut."
+C[1]="1. 安装后，增加 [sb] 的快捷运行方式"
 E[2]="Project to create Argo tunnels and Sing-box specifically for VPS, detailed:[https://github.com/fscarmen/sba]\n Features:\n\t • Allows the creation of Argo tunnels via Token, Json and ad hoc methods. User can easily obtain the json at https://fscarmen.cloudflare.now.cc .\n\t • Extremely fast installation method, saving users time.\n\t • Support system: Ubuntu, Debian, CentOS, Alpine and Arch Linux 3.\n\t • Support architecture: AMD,ARM and s390x\n"
 C[2]="本项目专为 VPS 添加 Argo 隧道及 Sing-Box,详细说明: [https://github.com/fscarmen/sba]\n 脚本特点:\n\t • 允许通过 Token, Json 及 临时方式来创建 Argo 隧道,用户通过以下网站轻松获取 json: https://fscarmen.cloudflare.now.cc\n\t • 极速安装方式,大大节省用户时间\n\t • 智能判断操作系统: Ubuntu 、Debian 、CentOS 、Alpine 和 Arch Linux,请务必选择 LTS 系统\n\t • 支持硬件结构类型: AMD 和 ARM\n"
 E[3]="Input errors up to 5 times.The script is aborted."
 C[3]="输入错误达5次,脚本退出"
 E[4]="UUID should be 36 characters, please re-enter \(\$[a-1] times remaining\)"
 C[4]="UUID 应为36位字符,请重新输入 \(剩余\$[a-1]次\)"
-E[5]="The script supports Debian, Ubuntu, CentOS, Alpine or Arch systems only. Feedback: [https://github.com/fscarmen/sba/issues]"
-C[5]="本脚本只支持 Debian、Ubuntu、CentOS、Alpine 或 Arch 系统,问题反馈:[https://github.com/fscarmen/sba/issues]"
+E[5]="The script supports Debian, Ubuntu, CentOS, Alpine, Fedora or Arch systems only. Feedback: [https://github.com/fscarmen/sba/issues]"
+C[5]="本脚本只支持 Debian、Ubuntu、CentOS、Alpine、Fedora 或 Arch 系统,问题反馈:[https://github.com/fscarmen/sba/issues]"
 E[6]="Curren operating system is \$SYS.\\\n The system lower than \$SYSTEM \${MAJOR[int]} is not supported. Feedback: [https://github.com/fscarmen/sba/issues]"
 C[6]="当前操作是 \$SYS\\\n 不支持 \$SYSTEM \${MAJOR[int]} 以下系统,问题反馈:[https://github.com/fscarmen/sba/issues]"
 E[7]="Install dependence-list:"
@@ -73,16 +73,16 @@ E[27]="close"
 C[27]="关闭"
 E[28]="open"
 C[28]="开启"
-E[29]="View links"
-C[29]="查看节点信息"
-E[30]="Change the Argo tunnel"
-C[30]="更换 Argo 隧道"
-E[31]="Sync Argo and Sing-box to the latest version"
-C[31]="同步 Argo 和 Sing-box 至最新版本"
-E[32]="Upgrade kernel, turn on BBR, change Linux system"
-C[32]="升级内核、安装BBR、DD脚本"
-E[33]="Uninstall"
-C[33]="卸载"
+E[29]="View links (sb -n)"
+C[29]="查看节点信息 (sb -n)"
+E[30]="Change the Argo tunnel (sb -t)"
+C[30]="更换 Argo 隧道 (sb -t)"
+E[31]="Sync Argo and Sing-box to the latest version (sb -v)"
+C[31]="同步 Argo 和 Sing-box 至最新版本 (sb -v)"
+E[32]="Upgrade kernel, turn on BBR, change Linux system (sb -b)"
+C[32]="升级内核、安装BBR、DD脚本 (sb -b)"
+E[33]="Uninstall (sb -u)"
+C[33]="卸载 (sb -u)"
 E[34]="Install script"
 C[34]="安装脚本"
 E[35]="Exit"
@@ -259,13 +259,13 @@ check_system_info() {
   [[ -z "$SYS" && -s /etc/redhat-release ]] && SYS="$(grep . /etc/redhat-release)"
   [[ -z "$SYS" && -s /etc/issue ]] && SYS="$(grep . /etc/issue | cut -d '\' -f1 | sed '/^[ ]*$/d')"
 
-  REGEX=("debian" "ubuntu" "centos|red hat|kernel|oracle linux|alma|rocky" "amazon linux" "arch linux" "alpine")
-  RELEASE=("Debian" "Ubuntu" "CentOS" "CentOS" "Arch" "Alpine")
+  REGEX=("debian" "ubuntu" "centos|red hat|kernel|oracle linux|alma|rocky" "amazon linux" "arch linux" "alpine" "fedora")
+  RELEASE=("Debian" "Ubuntu" "CentOS" "CentOS" "Arch" "Alpine" "Fedora")
   EXCLUDE=("")
-  MAJOR=("9" "16" "7" "7" "" "")
-  PACKAGE_UPDATE=("apt -y update" "apt -y update" "yum -y update" "yum -y update" "pacman -Sy" "apk update -f")
-  PACKAGE_INSTALL=("apt -y install" "apt -y install" "yum -y install" "yum -y install" "pacman -S --noconfirm" "apk add --no-cache")
-  PACKAGE_UNINSTALL=("apt -y autoremove" "apt -y autoremove" "yum -y autoremove" "yum -y autoremove" "pacman -Rcnsu --noconfirm" "apk del -f")
+  MAJOR=("9" "16" "7" "7" "3" "" "37")
+  PACKAGE_UPDATE=("apt -y update" "apt -y update" "yum -y update" "yum -y update" "pacman -Sy" "apk update -f" "dnf -y update")
+  PACKAGE_INSTALL=("apt -y install" "apt -y install" "yum -y install" "yum -y install" "pacman -S --noconfirm" "apk add --no-cache" "dnf -y install")
+  PACKAGE_UNINSTALL=("apt -y autoremove" "apt -y autoremove" "yum -y autoremove" "yum -y autoremove" "pacman -Rcnsu --noconfirm" "apk del -f" "dnf -y autoremove")
 
   for int in "${!REGEX[@]}"; do [[ $(tr 'A-Z' 'a-z' <<< "$SYS") =~ ${REGEX[int]} ]] && SYSTEM="${RELEASE[int]}" && break; done
   [ -z "$SYSTEM" ] && error " $(text 5) "
@@ -818,6 +818,18 @@ EOF
   esac
 }
 
+# 创建快捷方式
+create_shortcut() {
+  cat > $WORK_DIR/sb.sh << EOF
+#!/usr/bin/env bash
+
+bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/sba/main/sba.sh) \$1
+EOF
+  chmod +x $WORK_DIR/sb.sh
+  ln -sf $WORK_DIR/sb.sh /usr/bin/sb
+  [ -s /usr/bin/argox ] && hint "\n $(text 62) "
+}
+
 export_list() {
   check_install
   # 没有开启 Argo 和 Sing-box 服务，将不输出节点信息
@@ -972,7 +984,7 @@ uninstall() {
   if [ -d $WORK_DIR ]; then
     cmd_systemctl disable argo
     cmd_systemctl disable sing-box
-    rm -rf $WORK_DIR $TEMP_DIR /etc/systemd/system/{sing-box,argo}.service
+    rm -rf $WORK_DIR $TEMP_DIR /etc/systemd/system/{sing-box,argo}.service /usr/bin/sb
     [ $(ps -ef | grep 'nginx' | wc -l) -le 1 ] && reading " $(text 59) " REMOVE_NGINX
     [[ "$REMOVE_NGINX" = [Yy] ]] && ${PACKAGE_UNINSTALL[int]} nginx
     info "\n $(text 16) \n"
@@ -987,14 +999,14 @@ uninstall() {
 # Argo 与 Sing-box 的最新版本
 version() {
   # Argo 版本
-  local ARGO_ONLINE=$(wget -qO- "https://api.github.com/repos/cloudflare/cloudflared/releases/latest" | grep "tag_name" | cut -d \" -f4)
-  local ARGO_LOCAL=$($WORK_DIR/cloudflared -v | awk '{for (i=0; i<NF; i++) if ($i=="version") {print $(i+1)}}')
-  local ARGO_APP=ARGO && info "\n $(text 43) "
-  [[ -n "$ARGO_ONLINE" && "$ARGO_ONLINE" != "$ARGO_LOCAL" ]] && reading "\n $(text 9) " UPDATE[0] || info " $(text 44) "
-  local SING_BOX_ONLINE=$(wget -qO- "https://api.github.com/repos/SagerNet/sing-box/releases/latest" | grep "tag_name" | sed "s@.*\"v\(.*\)\",@\1@g")
-  local SING_BOX_LOCAL=$($WORK_DIR/sing-box version | awk '/version/{print $NF}')
+  local ONLINE=$(wget -qO- "https://api.github.com/repos/cloudflare/cloudflared/releases/latest" | grep "tag_name" | cut -d \" -f4)
+  local LOCAL=$($WORK_DIR/cloudflared -v | awk '{for (i=0; i<NF; i++) if ($i=="version") {print $(i+1)}}')
+  local APP=ARGO && info "\n $(text 43) "
+  [[ -n "$ONLINE" && "$ONLINE" != "$LOCAL" ]] && reading "\n $(text 9) " UPDATE[0] || info " $(text 44) "
+  local ONLINE=$(wget -qO- "https://api.github.com/repos/SagerNet/sing-box/releases/latest" | grep "tag_name" | sed "s@.*\"v\(.*\)\",@\1@g")
+  local LOCAL=$($WORK_DIR/sing-box version | awk '/version/{print $NF}')
   local APP=Sing-box && info "\n $(text 43) "
-  [[ -n "$SING_BOX_ONLINE" && "$SING_BOX_ONLINE" != "$SING_BOX_LOCAL" ]] && reading "\n $(text 9) " UPDATE[1] || info " $(text 44) "
+  [[ -n "$ONLINE" && "$ONLINE" != "$LOCAL" ]] && reading "\n $(text 9) " UPDATE[1] || info " $(text 44) "
 
   [[ ${UPDATE[*]} =~ [Yy] ]] && check_system_info
   if [[ ${UPDATE[0]} = [Yy] ]]; then
@@ -1008,12 +1020,12 @@ version() {
     fi
   fi
   if [[ ${UPDATE[1]} = [Yy] ]]; then
-    wget -O $TEMP_DIR/sing-box.tar.gz ${GH_PROXY}https://github.com/SagerNet/sing-box/releases/download/v$SING_BOX_ONLINE/sing-box-$SING_BOX_ONLINE-linux-$SING_BOX_ARCH.tar.gz
+    wget -O $TEMP_DIR/sing-box.tar.gz ${GH_PROXY}https://github.com/SagerNet/sing-box/releases/download/v$ONLINE/sing-box-$ONLINE-linux-$SING_BOX_ARCH.tar.gz
     if [ -s $TEMP_DIR/sing-box.tar.gz ]; then
       cmd_systemctl disable sing-box
-      tar xzvf $TEMP_DIR/sing-box.tar.gz -C $TEMP_DIR sing-box-$SING_BOX_ONLINE-linux-$SING_BOX_ARCH/sing-box
-      mv $TEMP_DIR/sing-box-$SING_BOX_ONLINE-linux-$SING_BOX_ARCH/sing-box $WORK_DIR
-      rm -rf $TEMP_DIR/{sing-box.tar.gz,sing-box-$SING_BOX_ONLINE-linux-$SING_BOX_ARCH}
+      tar xzvf $TEMP_DIR/sing-box.tar.gz -C $TEMP_DIR sing-box-$ONLINE-linux-$SING_BOX_ARCH/sing-box
+      mv $TEMP_DIR/sing-box-$ONLINE-linux-$SING_BOX_ARCH/sing-box $WORK_DIR
+      rm -rf $TEMP_DIR/{sing-box.tar.gz,sing-box-$ONLINE-linux-$SING_BOX_ARCH}
       cmd_systemctl enable sing-box && [ "$(systemctl is-active sing-box)" = 'active' ] && info " Sing-box $(text 28) $(text 37)" || error " Sing-box  $(text 28) $(text 38) "
     else
       local APP=Sing-box && error "\n $(text 48) "
@@ -1035,8 +1047,8 @@ menu_setting() {
     [ "$SYSTEM" = 'Alpine' ] && PS_LIST=$(ps -ef) || PS_LIST=$(ps -ef | grep -E 'sing-box|cloudflared' | awk '{ $1=""; sub(/^ */, ""); print $0 }')
 
     OPTION[1]="1.  $(text 29)"
-    [ ${STATUS[0]} = "$(text 28)" ] && AEGO_MEMORY="$(text 52): $(awk '/VmRSS/{printf "%.1f\n", $2/1024}' /proc/$(awk '/\/etc\/sba\/cloudflared/{print $1}' <<< "$PS_LIST")/status) MB" && OPTION[2]="2.  $(text 27) Argo" || OPTION[2]="2.  $(text 28) Argo"
-    [ ${STATUS[1]} = "$(text 28)" ] && SING_BOX_MEMORY="$(text 52): $(awk '/VmRSS/{printf "%.1f\n", $2/1024}' /proc/$(awk '/\/etc\/sba\/sing-box.*\/etc\/sba/{print $1}' <<< "$PS_LIST")/status) MB" && OPTION[3]="3.  $(text 27) Sing-box" || OPTION[3]="3.  $(text 28) Sing-box"
+    [ ${STATUS[0]} = "$(text 28)" ] && AEGO_MEMORY="$(text 52): $(awk '/VmRSS/{printf "%.1f\n", $2/1024}' /proc/$(awk '/\/etc\/sba\/cloudflared/{print $1}' <<< "$PS_LIST")/status) MB" && OPTION[2]="2.  $(text 27) Argo (sb -a)" || OPTION[2]="2.  $(text 28) Argo (sb -a)"
+    [ ${STATUS[1]} = "$(text 28)" ] && SING_BOX_MEMORY="$(text 52): $(awk '/VmRSS/{printf "%.1f\n", $2/1024}' /proc/$(awk '/\/etc\/sba\/sing-box.*\/etc\/sba/{print $1}' <<< "$PS_LIST")/status) MB" && OPTION[3]="3.  $(text 27) Sing-box (sb -s)" || OPTION[3]="3.  $(text 28) Sing-box (sb -s)"
     OPTION[4]="4.  $(text 30)"
     OPTION[5]="5.  $(text 31)"
     OPTION[6]="6.  $(text 32)"
@@ -1060,7 +1072,7 @@ menu_setting() {
     OPTION[3]="3.  $(text 51)"
     OPTION[4]="4.  $(text 58)"
 
-    ACTION[1]() { install_sba; export_list; }
+    ACTION[1]() { install_sba; export_list; create_shortcut; exit; }
     ACTION[2]() { bash <(wget -qO- --no-check-certificate "https://raw.githubusercontents.com/ylx2016/Linux-NetSpeed/master/tcp.sh"); exit; }
     ACTION[3]() { bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/sing-box/main/sing-box.sh) -$L; exit; }
     ACTION[4]() { bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/argox/main/argox.sh) -$L; exit; }
@@ -1094,11 +1106,14 @@ statistics_of_run-times
 [[ "$*" =~ -[Ee] ]] && L=E
 [[ "$*" =~ -[Cc] ]] && L=C
 
-while getopts ":UuVvNnF:f:" OPTNAME; do
+while getopts ":AaSsUuVvNnBbF:f:" OPTNAME; do
   case "$OPTNAME" in
+    'A'|'a' ) select_language; check_system_info; [ "$(systemctl is-active argo)" = 'inactive' ] && { cmd_systemctl enable argo; [ "$(systemctl is-active argo)" = 'active' ] && info "\n Argo $(text 28) $(text 37)" || error " Argo $(text 28) $(text 38) "; } || { cmd_systemctl disable argo; [ "$(systemctl is-active argo)" = 'inactive' ] && info "\n Argo $(text 27) $(text 37)" || error " Argo $(text 27) $(text 38) "; } ;  exit 0 ;;
+    'S'|'s' ) select_language; check_system_info; [ "$(systemctl is-active sing-box)" = 'inactive' ] && { cmd_systemctl enable sing-box; [ "$(systemctl is-active sing-box)" = 'active' ] && info "\n Sing-box $(text 28) $(text 37)" || error " Sing-box $(text 28) $(text 38) "; } || { cmd_systemctl disable sing-box; [ "$(systemctl is-active sing-box)" = 'inactive' ] && info "\n Sing-box $(text 27) $(text 37)" || error " Sing-box $(text 27) $(text 38) "; } ;  exit 0 ;;
     'U'|'u' ) select_language; check_system_info; uninstall; exit 0 ;;
     'N'|'n' ) select_language; export_list; exit 0 ;;
     'V'|'v' ) select_language; check_arch; version; exit 0;;
+    'B'|'b' ) select_language; bash <(wget -qO- --no-check-certificate "https://raw.githubusercontents.com/ylx2016/Linux-NetSpeed/master/tcp.sh"); exit ;;
     'F'|'f' ) VARIABLE_FILE=$OPTARG; . $VARIABLE_FILE ;;
   esac
 done

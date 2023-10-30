@@ -14,7 +14,9 @@
 
 * * *
 ## 更新信息
-2023.10.24 beta3 1. The Argo tunnel does not go through Reality's port 443 and goes directly to Nginx's port 3310, reducing latency; 2. Nginx reverses the API url for the temporary tunnel domain, which is now [ https://<ip>/argo ]; 1. Argo 隧道不过 Reality 的 443 端口，直接到达 Nginx 的 3310 端口，减少延时; 2. Nginx 反代查临时隧道域名 API url，现在是 [ https://<ip>/argo ]
+2023.10.30 beta4 1. After installing, add [sb] shortcut; 1. 安装后，增加 [sb]] 的快捷运行方式
+
+2023.10.24 beta3 1. The Argo tunnel does not go through Reality's port 443 and goes directly to Nginx's port 3310, reducing latency; 2. Nginx reverses the API url for the temporary tunnel domain, which is now [ https://< ip >/argo ]; 1. Argo 隧道不过 Reality 的 443 端口，直接到达 Nginx 的 3310 端口，减少延时; 2. Nginx 反代查临时隧道域名 API url，现在是 [ https://< ip >/argo ]
 
 2023.10.23 beta2 1. Add reality; 2. Support temporary tunnels; 3. Support changing tunnel type; 4. Fallback from Argo tunnel to Nginx; 1. 增加 reality; 2. 支持临时隧道; 3. 支持改变隧道类型; 4. 回落从 Argo tunnel 改到 Nginx
 
@@ -43,10 +45,13 @@ bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/sba/main/sba.sh)
   | Option 参数 | Remark 备注 | 
   | -----------| ------ |
   | -c         | Chinese 中文 |
-  | -e         | English 英文 | 
+  | -e         | English 英文 |
+  | -a         | Argo on-off Argo 开关 |
+  | -s         | Sing-box on-off Xray 开关 |
   | -f         | Variable file，refer to REPO file "config" 参数文件，可参数项目的文件 config | 
   | -u         | Uninstall 卸载 |
   | -n         | Export Nodes list 显示节点信息 |
+  | -b         | Upgrade kernel, turn on BBR, change Linux system 升级内核、安装BBR、DD脚本 |
   | -v         | Sync Argo Sing-box to the newest 同步 Argo Sing-box 到最新版本 |
 
 
@@ -89,7 +94,8 @@ bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/sba/main/sba.sh)
 |-- language                                 # 存放脚本语言文件，E 为英文，C 为中文
 |-- nginx.conf                               # Nginx 配置文件
 |-- list                                     # 节点信息列表
-`-- sing-box                                 # sing-box 主程序
+|-- sing-box                                 # sing-box 主程序
+`-- sb.sh                                    # 快捷方式脚本文件
 ```
 
 
