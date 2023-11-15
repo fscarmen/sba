@@ -14,7 +14,9 @@
 
 * * *
 ## 更新信息
-2023.10.30 V1.0 Reality xtls-rprx-vision / vless + WSS + Argo / vmess + WSS + Argo / trojan + WSS + Argo, 4 in 1 scripts, 4 合 1 脚本;
+2023.11.15 v1.0.1 1. Support TCP brutal. Reinstall is required; 2. Use alpha verion instead of latest; 3. Change the default CDN to [ cn.azhz.eu.org ]; 1. 支持 TCP brutal，需要重新安装; 2. 由于 Sing-box 更新极快，将使用 alpha 版本替代 latest; 3. 默认优选改为 [ cn.azhz.eu.org ]
+
+2023.10.30 v1.0 Reality xtls-rprx-vision / vless + WSS + Argo / vmess + WSS + Argo / trojan + WSS + Argo, 4 in 1 scripts, 4 合 1 脚本;
 
 <details>
     <summary>历史更新 history（点击即可展开或收起）</summary>

@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
 
 # 当前脚本版本号
-VERSION=1.0
+VERSION=1.0.1
 
 # 各变量默认值
-GH_PROXY='https://gh-proxy.com/'
+# GH_PROXY='https://ghproxy.com/' # 不稳定，暂不使用
 WS_PATH_DEFAULT='sba'
 WORK_DIR='/etc/sba'
 TEMP_DIR='/tmp/sba'
 TLS_SERVER=addons.mozilla.org
-CDN_DOMAIN=("www.who.int" "cdn.anycast.eu.org" "443.cf.bestl.de" "cn.azhz.eu.org" "cfip.gay")
+CDN_DOMAIN=("cn.azhz.eu.org" "www.who.int" "cdn.anycast.eu.org" "443.cf.bestl.de" "cfip.gay")
 
 trap "rm -rf $TEMP_DIR; echo -e '\n' ;exit 1" INT QUIT TERM EXIT
 
@@ -17,8 +17,8 @@ mkdir -p $TEMP_DIR
 
 E[0]="Language:\n 1. English (default) \n 2. 简体中文"
 C[0]="${E[0]}"
-E[1]="Reality xtls-rprx-vision/ vless + WSS + Argo / vmess + WSS + Argo / trojan + WSS + Argo, 4 in 1 scripts"
-C[1]="Reality xtls-rprx-vision/ vless + WSS + Argo / vmess + WSS + Argo / trojan + WSS + Argo, 4 合 1 脚本"
+E[1]="1. Support TCP brutal. Reinstall is required; 2. Use alpha verion instead of latest; 3. Change the default CDN to [ cn.azhz.eu.org ]"
+C[1]="1. 支持 TCP brutal，需要重新安装; 2. 由于 Sing-box 更新极快，将使用 alpha 版本替代 latest; 3. 默认优选改为 [ cn.azhz.eu.org ]"
 E[2]="Project to create Argo tunnels and Sing-box specifically for VPS, detailed:[https://github.com/fscarmen/sba]\n Features:\n\t • Allows the creation of Argo tunnels via Token, Json and ad hoc methods. User can easily obtain the json at https://fscarmen.cloudflare.now.cc .\n\t • Extremely fast installation method, saving users time.\n\t • Support system: Ubuntu, Debian, CentOS, Alpine and Arch Linux 3.\n\t • Support architecture: AMD,ARM and s390x\n"
 C[2]="本项目专为 VPS 添加 Argo 隧道及 Sing-Box,详细说明: [https://github.com/fscarmen/sba]\n 脚本特点:\n\t • 允许通过 Token, Json 及 临时方式来创建 Argo 隧道,用户通过以下网站轻松获取 json: https://fscarmen.cloudflare.now.cc\n\t • 极速安装方式,大大节省用户时间\n\t • 智能判断操作系统: Ubuntu 、Debian 、CentOS 、Alpine 和 Arch Linux,请务必选择 LTS 系统\n\t • 支持硬件结构类型: AMD 和 ARM\n"
 E[3]="Input errors up to 5 times.The script is aborted."
@@ -115,7 +115,7 @@ E[48]="Downloading the latest version \$APP failed, script exits. Feedback:[http
 C[48]="下载最新版本 \$APP 失败，脚本退出，问题反馈:[https://github.com/fscarmen/sba/issues]"
 E[49]="Please enter the node name. \(Default is \${NODE_NAME_DEFAULT}\):"
 C[49]="请输入节点名称 \(默认为 \${NODE_NAME_DEFAULT}\):"
-E[50]="Argo or Sing-box services are not enabled, node information cannot be output. Press [y] if you want to open."
+E[50]="\${APP[@]} services are not enabled, node information cannot be output. Press [y] if you want to open."
 C[50]="\${APP[@]} 服务未开启，不能输出节点信息。如需打开请按 [y]: "
 E[51]="Install Sing-box multi-protocol scripts [https://github.com/fscarmen/sing-box]"
 C[51]="安装 Sing-box 协议全家桶脚本 [https://github.com/fscarmen/sing-box]"
@@ -208,8 +208,8 @@ check_install() {
   }&
   [[ ${STATUS[1]} = "$(text 26)" ]] && [ ! -s $WORK_DIR/sing-box ] &&
   {
-    local SING_BOX_LATEST=$(wget -qO- "https://api.github.com/repos/SagerNet/sing-box/releases/latest" | grep "tag_name" | sed "s@.*\"v\(.*\)\",@\1@g")
-    SING_BOX_LATEST=${SING_BOX_LATEST:-'1.6.0'}
+    local SING_BOX_LATEST=$(wget -qO- "https://api.github.com/repos/SagerNet/sing-box/releases" | awk -F '["v]' '/tag_name.*alpha/{print $5; exit}')
+    SING_BOX_LATEST=${SING_BOX_LATEST:-'1.7.0-alpha.11'}
     wget -c $TEMP_DIR/sing-box.tar.gz ${GH_PROXY}https://github.com/SagerNet/sing-box/releases/download/v$SING_BOX_LATEST/sing-box-$SING_BOX_LATEST-linux-$SING_BOX_ARCH.tar.gz -qO- | tar xz -C $TEMP_DIR sing-box-$SING_BOX_LATEST-linux-$SING_BOX_ARCH/sing-box
     mv $TEMP_DIR/sing-box-$SING_BOX_LATEST-linux-$SING_BOX_ARCH/sing-box $TEMP_DIR >/dev/null 2>&1
   }&
@@ -644,6 +644,15 @@ EOF
                         ""
                     ]
                 }
+            },
+            "multiplex":{
+                "enabled":true,
+                "padding":true,
+                "brutal":{
+                    "enabled":true,
+                    "up_mbps":1000,
+                    "down_mbps":1000
+                }
             }
         },
         {
@@ -658,6 +667,15 @@ EOF
                 "path":"/${WS_PATH}-vl",
                 "max_early_data":2048,
                 "early_data_header_name":"Sec-WebSocket-Protocol"
+            },
+            "multiplex":{
+                "enabled":true,
+                "padding":true,
+                "brutal":{
+                    "enabled":true,
+                    "up_mbps":1000,
+                    "down_mbps":1000
+                }
             },
             "users":[
                 {
@@ -679,6 +697,15 @@ EOF
                 "max_early_data":2048,
                 "early_data_header_name":"Sec-WebSocket-Protocol"
             },
+            "multiplex":{
+                "enabled":true,
+                "padding":true,
+                "brutal":{
+                    "enabled":true,
+                    "up_mbps":1000,
+                    "down_mbps":1000
+                }
+            },
             "users":[
                 {
                     "uuid":"${UUID}",
@@ -698,6 +725,15 @@ EOF
                 "path":"/${WS_PATH}-tr",
                 "max_early_data":2048,
                 "early_data_header_name":"Sec-WebSocket-Protocol"
+            },
+            "multiplex":{
+                "enabled":true,
+                "padding":true,
+                "brutal":{
+                    "enabled":true,
+                    "up_mbps":1000,
+                    "down_mbps":1000
+                }
             },
             "users":[
                 {
@@ -963,7 +999,7 @@ $(hint "{
             \"enabled\":true,
             \"protocol\":\"h2mux\",
             \"max_connections\":16,
-            \"padding\":true
+            \"padding\": true
         }
       },
       {
@@ -993,7 +1029,7 @@ $(hint "{
           \"enabled\":true,
           \"protocol\":\"h2mux\",
           \"max_streams\":16,
-          \"padding\":true
+          \"padding\": true
         }
       },
       {
@@ -1023,7 +1059,7 @@ $(hint "{
           \"enabled\":true,
           \"protocol\":\"h2mux\",
           \"max_streams\":16,
-          \"padding\":true
+          \"padding\": true
         }
       },
       {
@@ -1053,7 +1089,7 @@ $(hint "{
           \"enabled\":true,
           \"protocol\":\"h2mux\",
           \"max_connections\": 16,
-          \"padding\":true
+          \"padding\": true
         }
       }
   ]
@@ -1136,7 +1172,7 @@ version() {
   local LOCAL=$($WORK_DIR/cloudflared -v | awk '{for (i=0; i<NF; i++) if ($i=="version") {print $(i+1)}}')
   local APP=ARGO && info "\n $(text 43) "
   [[ -n "$ONLINE" && "$ONLINE" != "$LOCAL" ]] && reading "\n $(text 9) " UPDATE[0] || info " $(text 44) "
-  local ONLINE=$(wget -qO- "https://api.github.com/repos/SagerNet/sing-box/releases/latest" | grep "tag_name" | sed "s@.*\"v\(.*\)\",@\1@g")
+  local ONLINE=$(wget -qO- "https://api.github.com/repos/SagerNet/sing-box/releases" | awk -F '["v]' '/tag_name.*alpha/{print $5; exit}')
   local LOCAL=$($WORK_DIR/sing-box version | awk '/version/{print $NF}')
   local APP=Sing-box && info "\n $(text 43) "
   [[ -n "$ONLINE" && "$ONLINE" != "$LOCAL" ]] && reading "\n $(text 9) " UPDATE[1] || info " $(text 44) "
