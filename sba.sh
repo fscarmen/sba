@@ -4,7 +4,7 @@
 VERSION=1.0.2
 
 # 各变量默认值
-GH_PROXY='https://gh-proxy.com/'
+GH_PROXY='https://mirror.ghproxy.com/'
 WS_PATH_DEFAULT='sba'
 WORK_DIR='/etc/sba'
 TEMP_DIR='/tmp/sba'
