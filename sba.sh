@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # 当前脚本版本号
-VERSION=1.0.2
+VERSION=1.0.3
 
 # 各变量默认值
 GH_PROXY='https://mirror.ghproxy.com/'
@@ -9,7 +9,7 @@ WS_PATH_DEFAULT='sba'
 WORK_DIR='/etc/sba'
 TEMP_DIR='/tmp/sba'
 TLS_SERVER=addons.mozilla.org
-CDN_DOMAIN=("cn.azhz.eu.org" "www.who.int" "cdn.anycast.eu.org" "443.cf.bestl.de" "cfip.gay")
+CDN_DOMAIN=("cn.azhz.eu.org" "www.who.int" "skk.moe" "time.cloudflare.com" "csgo.com")
 
 trap "rm -rf $TEMP_DIR; echo -e '\n' ;exit 1" INT QUIT TERM EXIT
 
@@ -17,8 +17,8 @@ mkdir -p $TEMP_DIR
 
 E[0]="Language:\n 1. English (default) \n 2. 简体中文"
 C[0]="${E[0]}"
-E[1]="1. Support TCP brutal and add the official install script. Reinstall is required; 2. Use beta verion instead of alpha; 3. Fix a bug in json or token Argo tunnel outputing nodes list."
-C[1]="1. 支持 TCP brutal，并提供官方安装脚本，需要重新安装; 2. 由于 Sing-box 更新极快，将使用 beta 版本替代 alpha; 3. 修复固定域名时输出节点信息有误的bug"
+E[1]="1. Support Sing-box 1.8.0 latest Rule Set and Experimental; 2. api.openai.com routes to WARP IPv4, other openai websites routes to WARP IPv6; 3. Change some CDN."
+C[1]="1. 支持 Sing-box 1.8.0 最新的 Rule Set 和 Experimental; 2. api.openai.com 分流到 WARP IPv4，其他 openai 网站分流到 WARP IPv6; 3. 更换一些优选域名"
 E[2]="Project to create Argo tunnels and Sing-box specifically for VPS, detailed:[https://github.com/fscarmen/sba]\n Features:\n\t • Allows the creation of Argo tunnels via Token, Json and ad hoc methods. User can easily obtain the json at https://fscarmen.cloudflare.now.cc .\n\t • Extremely fast installation method, saving users time.\n\t • Support system: Ubuntu, Debian, CentOS, Alpine and Arch Linux 3.\n\t • Support architecture: AMD,ARM and s390x\n"
 C[2]="本项目专为 VPS 添加 Argo 隧道及 Sing-Box,详细说明: [https://github.com/fscarmen/sba]\n 脚本特点:\n\t • 允许通过 Token, Json 及 临时方式来创建 Argo 隧道,用户通过以下网站轻松获取 json: https://fscarmen.cloudflare.now.cc\n\t • 极速安装方式,大大节省用户时间\n\t • 智能判断操作系统: Ubuntu 、Debian 、CentOS 、Alpine 和 Arch Linux,请务必选择 LTS 系统\n\t • 支持硬件结构类型: AMD 和 ARM\n"
 E[3]="Input errors up to 5 times.The script is aborted."
@@ -83,8 +83,8 @@ E[32]="Upgrade kernel, turn on BBR, change Linux system (sb -b)"
 C[32]="升级内核、安装BBR、DD脚本 (sb -b)"
 E[33]="Uninstall (sb -u)"
 C[33]="卸载 (sb -u)"
-E[34]="Install script"
-C[34]="安装脚本"
+E[34]="Install sba script (argo + sing-box)"
+C[34]="安装 sba 脚本 (argo + sing-box)"
 E[35]="Exit"
 C[35]="退出"
 E[36]="Please enter the correct number"
@@ -157,7 +157,7 @@ text() { grep -q '\$' <<< "${E[$*]}" && eval echo "\$(eval echo "\${${L}[$*]}")"
 # 自定义友道或谷歌翻译函数
 translate() {
   [ -n "$@" ] && EN="$@"
-  ZH=$(wget --no-check-certificate -qO- --tries=1 --timeout=2 "https://translate.google.com/translate_a/t?client=any_client_id_works&sl=en&tl=zh&q=${EN//[[:space:]]/}")
+  ZH=$(wget --no-check-certificate -qO- --tries=1 --timeout=2 "https://translate.google.com/translate_a/t?client=any_client_id_works&sl=en&tl=zh&q=${EN//[[:space:]]/}" 2>/dev/null)
   [[ "$ZH" =~ ^\[\".+\"\]$ ]] && cut -d \" -f2 <<< "$ZH"
 }
 
@@ -621,6 +621,12 @@ EOF
         "output":"$WORK_DIR/logs/box.log",
         "timestamp":true
     },
+    "experimental": {
+        "cache_file": {
+            "enabled": true,
+            "path": "$WORK_DIR/cache.db"
+        }
+    },
     "inbounds":[
         {
             "type":"vless",
@@ -629,7 +635,7 @@ EOF
             "users":[
                 {
                     "uuid":"${UUID}",
-                    "flow":"xtls-rprx-vision"
+                    "flow":""
                 }
             ],
             "tls":{
@@ -790,19 +796,21 @@ EOF
         }
     ],
     "route":{
-        "geoip":{
-            "download_url":"https://github.com/SagerNet/sing-geoip/releases/latest/download/geoip.db",
-            "download_detour":"direct"
-        },
-        "geosite":{
-            "download_url":"https://github.com/SagerNet/sing-geosite/releases/latest/download/geosite.db",
-            "download_detour":"direct"
-        },
+        "rule_set":[
+            {
+                "tag":"geosite-openai",
+                "type":"remote",
+                "format":"binary",
+                "url":"https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-openai.srs"
+            }
+        ],
         "rules":[
             {
-                "geosite":[
-                    "openai"
-                ],
+                "domain":"api.openai.com",
+                "outbound":"warp-IPv4-out"
+            },
+            {
+                "rule_set":"geosite-openai",
                 "outbound":"warp-IPv6-out"
             }
         ]
@@ -927,7 +935,7 @@ export_list() {
 │                │  │                │
 └────────────────┘  └────────────────┘
 ----------------------------
-$(info "vless://${UUID}@${SERVER_IP_1}:443?security=reality&sni=${TLS_SERVER}&fp=chrome&pbk=${REALITY_PUBLIC}&type=tcp&flow=xtls-rprx-vision&encryption=none#${NODE_NAME}%20vless-reality-vision
+$(info "vless://${UUID}@${SERVER_IP_1}:443?security=reality&sni=${TLS_SERVER}&fp=chrome&pbk=${REALITY_PUBLIC}&type=tcp&encryption=none#${NODE_NAME}%20vless-reality-vision
 
 vless://${UUID}@${SERVER}:443?encryption=none&security=tls&sni=${ARGO_DOMAIN}&type=ws&host=${ARGO_DOMAIN}&path=%2F${WS_PATH}-vl#${NODE_NAME}-Vl
 
@@ -944,7 +952,7 @@ trojan://${UUID}@${SERVER}:443?security=tls&sni=${ARGO_DOMAIN}&type=ws&host=${AR
 │                │
 └────────────────┘
 ----------------------------
-$(hint "vless://$(base64 -w0 <<< auto:${UUID}@${SERVER_IP_2}:443 | sed "s/Cg==$//")?remarks=${NODE_NAME}%20vless-reality-vision&obfs=none&tls=1&peer=$TLS_SERVER&mux=1&xtls=2&pbk=$REALITY_PUBLIC
+$(hint "vless://$(base64 -w0 <<< auto:${UUID}@${SERVER_IP_2}:443 | sed "s/Cg==$//")?remarks=${NODE_NAME}%20vless-reality-vision&obfs=none&tls=1&peer=$TLS_SERVER&mux=1&pbk=$REALITY_PUBLIC
 
 vless://$(base64 -w0 <<< auto:${UUID}@${SERVER}:443 | sed "s/Cg==$//")?remarks=${NODE_NAME}-Vl&obfsParam=${ARGO_DOMAIN}&path=/${WS_PATH}-vl?ed=2048&obfs=websocket&tls=1&peer=${ARGO_DOMAIN}&mux=1
 
@@ -959,13 +967,13 @@ trojan://${UUID}@${SERVER}:443?peer=${ARGO_DOMAIN}&mux=1&plugin=obfs-local;obfs=
 │                │
 └────────────────┘
 ----------------------------
-$(info "- {name: \"${NODE_NAME} vless-reality-vision\", type: vless, server: ${SERVER_IP}, port: 443, uuid: ${UUID}, network: tcp, udp: true, tls: true, servername: ${TLS_SERVER}, flow: xtls-rprx-vision, client-fingerprint: chrome, reality-opts: {public-key: ${REALITY_PUBLIC}, short-id: \"\"}, smux: { enabled: true, protocol: 'h2mux', padding: true, max-connections: '0', min-streams: '0', max-streams: '8', statistic: true, only-tcp: false } }
+$(info "- {name: \"${NODE_NAME} vless-reality-vision\", type: vless, server: ${SERVER_IP}, port: 443, uuid: ${UUID}, network: tcp, udp: true, tls: true, servername: ${TLS_SERVER}, client-fingerprint: chrome, reality-opts: {public-key: ${REALITY_PUBLIC}, short-id: \"\"}, smux: { enabled: true, protocol: 'h2mux', padding: true, max-connections: '8', min-streams: '16', statistic: true, only-tcp: false } }
 
-- {name: \"${NODE_NAME}-Vl\", type: vless, server: ${SERVER}, port: 443, uuid: ${UUID}, tls: true, servername: ${ARGO_DOMAIN}, skip-cert-verify: false, network: ws, ws-opts: { path: /${WS_PATH}-vl?ed=2048, max-early-data: 2048, early-data-header-name: Sec-WebSocket-Protocol, headers: { Host: ${ARGO_DOMAIN}}}, udp: true, smux: { enabled: true, protocol: 'h2mux', padding: true, max-connections: '0', min-streams: '0', max-streams: '8', statistic: true, only-tcp: false } }
+- {name: \"${NODE_NAME}-Vl\", type: vless, server: ${SERVER}, port: 443, uuid: ${UUID}, tls: true, servername: ${ARGO_DOMAIN}, skip-cert-verify: false, network: ws, ws-opts: { path: /${WS_PATH}-vl?ed=2048, max-early-data: 2048, early-data-header-name: Sec-WebSocket-Protocol, headers: { Host: ${ARGO_DOMAIN}}}, udp: true, smux: { enabled: true, protocol: 'h2mux', padding: true, max-connections: '8', min-streams: '16', statistic: true, only-tcp: false } }
 
-- {name: \"${NODE_NAME}-Vm\", type: vmess, server: ${SERVER}, port: 443, uuid: ${UUID}, alterId: 0, cipher: none, tls: true, skip-cert-verify: true, network: ws, ws-opts: { path: /${WS_PATH}-vm?ed=2048, max-early-data: 2048, early-data-header-name: Sec-WebSocket-Protocol, headers: {Host: ${ARGO_DOMAIN}}}, udp: true, smux: { enabled: true, protocol: 'h2mux', padding: true, max-connections: '0', min-streams: '0', max-streams: '8', statistic: true, only-tcp: false } }
+- {name: \"${NODE_NAME}-Vm\", type: vmess, server: ${SERVER}, port: 443, uuid: ${UUID}, alterId: 0, cipher: none, tls: true, skip-cert-verify: true, network: ws, ws-opts: { path: /${WS_PATH}-vm?ed=2048, max-early-data: 2048, early-data-header-name: Sec-WebSocket-Protocol, headers: {Host: ${ARGO_DOMAIN}}}, udp: true, smux: { enabled: true, protocol: 'h2mux', padding: true, max-connections: '8', min-streams: '16', statistic: true, only-tcp: false } }
 
-- {name: \"${NODE_NAME}-Tr\", type: trojan, server: ${SERVER}, port: 443, password: ${UUID}, udp: true, tls: true, sni: ${ARGO_DOMAIN}, skip-cert-verify: false, network: ws, ws-opts: { path: /${WS_PATH}-tr?ed=2048, max-early-data: 2048, early-data-header-name: Sec-WebSocket-Protocol, headers: { Host: ${ARGO_DOMAIN} } }, smux: { enabled: true, protocol: 'h2mux', padding: true, max-connections: '0', min-streams: '0', max-streams: '8', statistic: true, only-tcp: false } }")
+- {name: \"${NODE_NAME}-Tr\", type: trojan, server: ${SERVER}, port: 443, password: ${UUID}, udp: true, tls: true, sni: ${ARGO_DOMAIN}, skip-cert-verify: false, network: ws, ws-opts: { path: /${WS_PATH}-tr?ed=2048, max-early-data: 2048, early-data-header-name: Sec-WebSocket-Protocol, headers: { Host: ${ARGO_DOMAIN} } }, smux: { enabled: true, protocol: 'h2mux', padding: true, max-connections: '8', min-streams: '16', statistic: true, only-tcp: false } }")
 
 *******************************************
 ┌────────────────┐
@@ -982,7 +990,7 @@ $(hint "{
         \"server\":\"${SERVER_IP}\",
         \"server_port\":443,
         \"uuid\":\"${UUID}\",
-        \"flow\":\"xtls-rprx-vision\",
+        \"flow\":\"\",
         \"packet_encoding\":\"xudp\",
         \"tls\":{
             \"enabled\":true,
@@ -1300,4 +1308,5 @@ check_dependencies
 check_system_ip
 check_install
 menu_setting
+
 [ -z "$VARIABLE_FILE" ] && menu || ACTION[1]

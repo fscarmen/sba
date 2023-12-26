@@ -14,6 +14,8 @@
 
 * * *
 ## 更新信息
+2023.12.25 v1.0.3 1. Support Sing-box 1.8.0 latest Rule Set and Experimental; 2. api.openai.com routes to WARP IPv4, other openai websites routes to WARP IPv6; 3. Change some CDN; 1. 支持 Sing-box 1.8.0 最新的 Rule Set 和 Experimental; 2. api.openai.com 分流到 WARP IPv4，其他 openai 网站分流到 WARP IPv6; 3. 更换一些优选域名
+
 2023.11.17 v1.0.2 1. Support TCP brutal and add the official install script. Reinstall is required; 2. Use beta verion instead of alpha; 3. Fix a bug in json or token Argo tunnel outputing nodes list; 1. 支持 TCP brutal，并提供官方安装脚本，需要重新安装; 2. 由于 Sing-box 更新极快，将使用 beta 版本替代 alpha; 3. 修复固定域名时输出节点信息有误的bug
 
 2023.11.15 v1.0.1 1. Support TCP brutal. Reinstall is required; 2. Use alpha verion instead of latest; 3. Change the default CDN to [ cn.azhz.eu.org ]; 1. 支持 TCP brutal，需要重新安装; 2. 由于 Sing-box 更新极快，将使用 alpha 版本替代 latest; 3. 默认优选改为 [ cn.azhz.eu.org ]
@@ -98,6 +100,7 @@ bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/sba/main/sba.sh)
 ├── cloudflared                              # Argo tunnel 主程序
 |-- tunnel.json                              # Argo tunnel Json 信息文件
 |-- tunnel.yml                               # Argo tunnel 配置文件
+|-- cache.db                                 # sing-box缓存文件
 |-- geosite.db                               # 用于基于域名或网站分类来进行访问控制、内容过滤或安全策略
 |-- geoip.db                                 # 用于根据 IP 地址来进行地理位置策略或访问控制
 |-- language                                 # 存放脚本语言文件，E 为英文，C 为中文
