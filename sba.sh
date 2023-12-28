@@ -9,7 +9,7 @@ WS_PATH_DEFAULT='sba'
 WORK_DIR='/etc/sba'
 TEMP_DIR='/tmp/sba'
 TLS_SERVER=addons.mozilla.org
-CDN_DOMAIN=("cn.azhz.eu.org" "www.who.int" "skk.moe" "time.cloudflare.com" "csgo.com")
+CDN_DOMAIN=("cn.azhz.eu.org" "achk.cloudflarest.link" "jp.cloudflarest.link" "www.who.int" "skk.moe" "time.cloudflare.com" "csgo.com")
 
 trap "rm -rf $TEMP_DIR; echo -e '\n' ;exit 1" INT QUIT TERM EXIT
 
