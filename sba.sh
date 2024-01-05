@@ -234,7 +234,6 @@ EOF
     else
       systemctl enable --now $APP
     fi
-    [ $(ps -ef | grep "$WORK_DIR/nginx" | wc -l) -le 1 ] && nginx -c $WORK_DIR/nginx.conf
 
   elif [ "$ENABLE_DISABLE" = 'disable' ]; then
     if [ "$SYSTEM" = 'Alpine' ]; then
@@ -243,7 +242,6 @@ EOF
     else
       systemctl disable --now $APP
     fi
-    kill -9 $(ss -nltp | grep '3010.*nginx' | grep -oE 'pid=[0-9]+' | awk -F "=" '{print $2}' | tr '\n' ' ') >/dev/null 2>&1
   fi
 }
 
@@ -595,6 +593,7 @@ After=network.target
 Type=simple
 NoNewPrivileges=yes
 TimeoutStartSec=0
+ExecStartPre=nginx -c $WORK_DIR/nginx.conf
 ExecStart=$ARGO_RUNS
 Restart=on-failure
 RestartSec=5s
