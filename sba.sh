@@ -4,7 +4,7 @@
 VERSION=1.0.3
 
 # 各变量默认值
-GH_PROXY='https://mirror.ghproxy.com/'
+GH_PROXY='cdn2.cloudflare.now.cc/https://'
 WS_PATH_DEFAULT='sba'
 WORK_DIR='/etc/sba'
 TEMP_DIR='/tmp/sba'
@@ -205,7 +205,7 @@ check_install() {
   fi
   [[ ${STATUS[0]} = "$(text 26)" ]] && [ ! -s $WORK_DIR/cloudflared ] &&
   {
-    wget --no-check-certificate -qO $TEMP_DIR/cloudflared ${GH_PROXY}https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-$ARGO_ARCH >/dev/null 2>&1
+    wget --no-check-certificate -qO $TEMP_DIR/cloudflared https://${GH_PROXY}github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-$ARGO_ARCH >/dev/null 2>&1
     chmod +x $TEMP_DIR/cloudflared >/dev/null 2>&1
   }&
   [[ ${STATUS[1]} = "$(text 26)" ]] && [ ! -s $WORK_DIR/sing-box ] &&
@@ -213,7 +213,7 @@ check_install() {
     local VERSION_LATEST=$(wget --no-check-certificate -qO- "https://api.github.com/repos/SagerNet/sing-box/releases" | awk -F '["v-]' '/tag_name/{print $5}' | sort -r | sed -n '1p')
     local SING_BOX_LATEST=$(wget --no-check-certificate -qO- "https://api.github.com/repos/SagerNet/sing-box/releases" | awk -F '["v]' -v var="tag_name.*$VERSION" '$0 ~ var {print $5; exit}')
     SING_BOX_LATEST=${SING_BOX_LATEST:-'1.8.1'}
-    wget --no-check-certificate -c $TEMP_DIR/sing-box.tar.gz ${GH_PROXY}https://github.com/SagerNet/sing-box/releases/download/v$SING_BOX_LATEST/sing-box-$SING_BOX_LATEST-linux-$SING_BOX_ARCH.tar.gz -qO- | tar xz -C $TEMP_DIR sing-box-$SING_BOX_LATEST-linux-$SING_BOX_ARCH/sing-box
+    wget --no-check-certificate -c $TEMP_DIR/sing-box.tar.gz https://${GH_PROXY}github.com/SagerNet/sing-box/releases/download/v$SING_BOX_LATEST/sing-box-$SING_BOX_LATEST-linux-$SING_BOX_ARCH.tar.gz -qO- | tar xz -C $TEMP_DIR sing-box-$SING_BOX_LATEST-linux-$SING_BOX_ARCH/sing-box
     mv $TEMP_DIR/sing-box-$SING_BOX_LATEST-linux-$SING_BOX_ARCH/sing-box $TEMP_DIR >/dev/null 2>&1
   }&
 }
@@ -1190,7 +1190,7 @@ version() {
 
   [[ ${UPDATE[*]} =~ [Yy] ]] && check_system_info
   if [[ ${UPDATE[0]} = [Yy] ]]; then
-    wget --no-check-certificate -O $TEMP_DIR/cloudflared ${GH_PROXY}https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-$ARGO_ARCH
+    wget --no-check-certificate -O $TEMP_DIR/cloudflared https://${GH_PROXY}github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-$ARGO_ARCH
     if [ -s $TEMP_DIR/cloudflared ]; then
       cmd_systemctl disable argo
       chmod +x $TEMP_DIR/cloudflared && mv $TEMP_DIR/cloudflared $WORK_DIR/cloudflared
@@ -1200,7 +1200,7 @@ version() {
     fi
   fi
   if [[ ${UPDATE[1]} = [Yy] ]]; then
-    wget --no-check-certificate -c ${GH_PROXY}https://github.com/SagerNet/sing-box/releases/download/v$ONLINE/sing-box-$ONLINE-linux-$SING_BOX_ARCH.tar.gz -qO- | tar xz -C $TEMP_DIR sing-box-$ONLINE-linux-$SING_BOX_ARCH/sing-box
+    wget --no-check-certificate -c https://${GH_PROXY}github.com/SagerNet/sing-box/releases/download/v$ONLINE/sing-box-$ONLINE-linux-$SING_BOX_ARCH.tar.gz -qO- | tar xz -C $TEMP_DIR sing-box-$ONLINE-linux-$SING_BOX_ARCH/sing-box
     if [ -s $TEMP_DIR/sing-box-$ONLINE-linux-$SING_BOX_ARCH/sing-box ]; then
       cmd_systemctl disable sing-box
       mv $TEMP_DIR/sing-box-$ONLINE-linux-$SING_BOX_ARCH/sing-box $WORK_DIR
