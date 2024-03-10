@@ -14,14 +14,16 @@
 
 * * *
 ## 更新信息
-2024.3.2 v1.0.5 1. Support V2rayN / Nekobox / Clash / sing-box / Shadowrocket subscribe. https://\<argo tunnel url\>/\<uuid\>/\<base64 | clash | sing-box-pc | sing-box-phone | proxies | qr\>. Index of all subscribes: https://\<argo tunnel url\>/\<uuid\>/  ; Reinstall is required; 2. Adaptive the above clients. https://\<argo tunnel url\>/\<uuid\>/<auto | auto2\> ; 1. 增加 V2rayN / Nekobox / Clash / sing-box / Shadowrocket 订阅，https://\<argo tunnel url\>/\<uuid\>/\<base64 | clash | sing-box-pc | sing-box-phone | proxies | qr\>， 所有订阅的索引: https://\<argo tunnel url\>/\<uuid\>/，需要重新安装; 2. 自适应以上的客户端，https://\<argo tunnel url\>/\<uuid\>/\<auto | auto2\>
+2024.3.10 v1.0.6 1. To protect node data security, use fake information to fetch subscribe api; 2. Adaptive the above clients. https://\<argo tunnel url\>/\<uuid\>/\<auto | auto2\>; 1. 为保护节点数据安全，在 api 转订阅时，使用虚假信息; 2. 自适应以上的客户端，https://\<argo tunnel url\>/\<uuid\>/\<auto | auto2\>
 
-2024.2.6 v1.0.4 Argo run protocol uses default instead of http2. The default value is auto, what will automatically configure the quic protocol. If cloudflared is unable to establish UDP connections, it will fallback to using the http2 protocol; Argo 运行的协议使用默认值，而不是 http2。默认值为 auto，将自动配置 quic 协议。如果 cloudflared 无法建立 UDP 连接，它将回落到使用 http2 协议。
+2024.3.2 v1.0.5 1. Support V2rayN / Nekobox / Clash / sing-box / Shadowrocket subscribe. https://\<argo tunnel url\>/\<uuid\>/\<base64 | clash | sing-box-pc | sing-box-phone | proxies | qr\>. Index of all subscribes: https://\<argo tunnel url\>/\<uuid\>/  ; Reinstall is required; 2. Adaptive the above clients. https://\<argo tunnel url\>/\<uuid\>/<auto | auto2\> ; 1. 增加 V2rayN / Nekobox / Clash / sing-box / Shadowrocket 订阅，https://\<argo tunnel url\>/\<uuid\>/\<base64 | clash | sing-box-pc | sing-box-phone | proxies | qr\>， 所有订阅的索引: https://\<argo tunnel url\>/\<uuid\>/，需要重新安装; 2. 自适应以上的客户端，https://\<argo tunnel url\>/\<uuid\>/\<auto | auto2\>
 
 <details>
     <summary>历史更新 history（点击即可展开或收起）</summary>
 <br>
 
+>2024.2.6 v1.0.4 Argo run protocol uses default instead of http2. The default value is auto, what will automatically configure the quic protocol. If cloudflared is unable to establish UDP connections, it will fallback to using the http2 protocol; Argo 运行的协议使用默认值，而不是 http2。默认值为 auto，将自动配置 quic 协议。如果 cloudflared 无法建立 UDP 连接，它将回落到使用 http2 协议。
+>
 >2023.12.25 v1.0.3 1. Support Sing-box 1.8.0 latest Rule Set and Experimental; 2. api.openai.com routes to WARP IPv4, other openai websites routes to WARP IPv6; 3. Change some CDN; 1. 支持 Sing-box 1.8.0 最新的 Rule Set 和 Experimental; 2. api.openai.com 分流到 WARP IPv4，其他 openai 网站分流到 WARP IPv6; 3. 更换一些优选域名
 >
 >2023.11.17 v1.0.2 1. Support TCP brutal and add the official install script. Reinstall is required; 2. Use beta verion instead of alpha; 3. Fix a bug in json or token Argo tunnel outputing nodes list; 1. 支持 TCP brutal，并提供官方安装脚本，需要重新安装; 2. 由于 Sing-box 更新极快，将使用 beta 版本替代 alpha; 3. 修复固定域名时输出节点信息有误的bug
