@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 
 # 当前脚本版本号
-VERSION=1.0.6
+VERSION='1.0.7 (2024-3-15)'
 
 # 各变量默认值
-GH_PROXY='cdn2.cloudflare.now.cc/https://'
+GH_PROXY='https://cdn2.cloudflare.now.cc/'
 WS_PATH_DEFAULT='sba'
 WORK_DIR='/etc/sba'
 TEMP_DIR='/tmp/sba'
@@ -13,7 +13,7 @@ CDN_DOMAIN=("cn.azhz.eu.org" "www.who.int" "skk.moe" "time.cloudflare.com" "csgo
 SUBSCRIBE_TEMPLATE="https://raw.githubusercontent.com/fscarmen/client_template/main"
 SUBSCRIBE_API="api.v1.mk"
 METRICS_PORT='3014'
-SUBSCRIBE_API=("back.889876.xyz" "api.v1.mk")
+SUBSCRIBE_API=("bav6.889876.xyz" "api.v1.mk")
 
 trap "rm -rf $TEMP_DIR; echo -e '\n' ;exit 1" INT QUIT TERM EXIT
 
@@ -21,8 +21,8 @@ mkdir -p $TEMP_DIR
 
 E[0]="Language:\n 1. English (default) \n 2. 简体中文"
 C[0]="${E[0]}"
-E[1]="1. To protect node data security, use fake information to fetch subscribe api; 2. Adaptive the above clients. https://<argo tunnel url>/<uuid>/<auto | auto2>"
-C[1]="1. 为保护节点数据安全，在 api 转订阅时，使用虚假信息; 2. 自适应以上的客户端，https://<argo tunnel url>/<uuid>/<auto | auto2>"
+E[1]="Use native IP if it supports unlocking chatGPT, otherwise use warp chained proxy unlocking"
+C[1]="如自身支持解锁 chatGPT，则使用原生 IP，否则使用 warp 链式代理解锁"
 E[2]="Project to create Argo tunnels and Sing-box specifically for VPS, detailed:[https://github.com/fscarmen/sba]\n Features:\n\t • Allows the creation of Argo tunnels via Token, Json and ad hoc methods. User can easily obtain the json at https://fscarmen.cloudflare.now.cc .\n\t • Extremely fast installation method, saving users time.\n\t • Support system: Ubuntu, Debian, CentOS, Alpine and Arch Linux 3.\n\t • Support architecture: AMD,ARM and s390x\n"
 C[2]="本项目专为 VPS 添加 Argo 隧道及 Sing-Box,详细说明: [https://github.com/fscarmen/sba]\n 脚本特点:\n\t • 允许通过 Token, Json 及 临时方式来创建 Argo 隧道,用户通过以下网站轻松获取 json: https://fscarmen.cloudflare.now.cc\n\t • 极速安装方式,大大节省用户时间\n\t • 智能判断操作系统: Ubuntu 、Debian 、CentOS 、Alpine 和 Arch Linux,请务必选择 LTS 系统\n\t • 支持硬件结构类型: AMD 和 ARM\n"
 E[3]="Input errors up to 5 times.The script is aborted."
@@ -39,14 +39,14 @@ E[8]="All dependencies already exist and do not need to be installed additionall
 C[8]="所有依赖已存在，不需要额外安装"
 E[9]="To upgrade, press [y]. No upgrade by default:"
 C[9]="升级请按 [y]，默认不升级:"
-E[10]="Please input Argo Domain (Default is temporary domain if left blank):"
-C[10]="请输入 Argo 域名 (如果没有，可以跳过以使用 Argo 临时域名):"
+E[10]="(2/7) Please input Argo Domain (Default is temporary domain if left blank):"
+C[10]="(2/7) 请输入 Argo 域名 (如果没有，可以跳过以使用 Argo 临时域名):"
 E[11]="Please input Argo Token or Json ( User can easily obtain the json at https://fscarmen.cloudflare.now.cc ):"
 C[11]="请输入 Argo Token 或者 Json ( 用户通过以下网站轻松获取 json: https://fscarmen.cloudflare.now.cc ):"
-E[12]="Please input Sing-box UUID \(Default is \$UUID_DEFAULT\):"
-C[12]="请输入 Sing-box UUID \(默认为 \$UUID_DEFAULT\):"
-E[13]="Please input Sing-box WS Path \(Default is \$WS_PATH_DEFAULT\):"
-C[13]="请输入 Sing-box WS 路径 \(默认为 \$WS_PATH_DEFAULT\):"
+E[12]="\(5/7\) Please input Sing-box UUID \(Default is \$UUID_DEFAULT\):"
+C[12]="\(5/7\) 请输入 Sing-box UUID \(默认为 \$UUID_DEFAULT\):"
+E[13]="\(6/7\) Please input Sing-box WS Path \(Default is \$WS_PATH_DEFAULT\):"
+C[13]="\(6/7\) 请输入 Sing-box WS 路径 \(默认为 \$WS_PATH_DEFAULT\):"
 E[14]="Sing-box WS Path only allow uppercase and lowercase letters and numeric characters, please re-enter \(\${a} times remaining\):"
 C[14]="Sing-box WS 路径只允许英文大小写及数字字符，请重新输入 \(剩余\${a}次\):"
 E[15]="sba script has not been installed yet."
@@ -103,8 +103,8 @@ E[40]="Argo tunnel is: \$ARGO_TYPE\\\n The domain is: \$ARGO_DOMAIN"
 C[40]="Argo 隧道类型为: \$ARGO_TYPE\\\n 域名是: \$ARGO_DOMAIN"
 E[41]="Argo tunnel type:\n 1. Try\n 2. Token or Json"
 C[41]="Argo 隧道类型:\n 1. Try\n 2. Token 或者 Json"
-E[42]="Please select or enter the preferred domain, the default is \${CDN_DOMAIN[0]}:"
-C[42]="请选择或者填入优选域名，默认为 \${CDN_DOMAIN[0]}:"
+E[42]="\(4/7\) Please select or enter the preferred domain, the default is \${CDN_DOMAIN[0]}:"
+C[42]="\(4/7\) 请选择或者填入优选域名，默认为 \${CDN_DOMAIN[0]}:"
 E[43]="\$APP local verion: \$LOCAL\\\t The newest verion: \$ONLINE"
 C[43]="\$APP 本地版本: \$LOCAL\\\t 最新版本: \$ONLINE"
 E[44]="No upgrade required."
@@ -117,8 +117,8 @@ E[47]="The script must be run as root, you can enter sudo -i and then download a
 C[47]="必须以root方式运行脚本，可以输入 sudo -i 后重新下载运行，问题反馈:[https://github.com/fscarmen/sba/issues]"
 E[48]="Downloading the latest version \$APP failed, script exits. Feedback:[https://github.com/fscarmen/sba/issues]"
 C[48]="下载最新版本 \$APP 失败，脚本退出，问题反馈:[https://github.com/fscarmen/sba/issues]"
-E[49]="Please enter the node name. \(Default is \${NODE_NAME_DEFAULT}\):"
-C[49]="请输入节点名称 \(默认为 \${NODE_NAME_DEFAULT}\):"
+E[49]="\(7/7\) Please enter the node name. \(Default is \${NODE_NAME_DEFAULT}\):"
+C[49]="\(7/7\) 请输入节点名称 \(默认为 \${NODE_NAME_DEFAULT}\):"
 E[50]="\${APP[@]} services are not enabled, node information cannot be output. Press [y] if you want to open."
 C[50]="\${APP[@]} 服务未开启，不能输出节点信息。如需打开请按 [y]: "
 E[51]="Install Sing-box multi-protocol scripts [https://github.com/fscarmen/sing-box]"
@@ -131,10 +131,10 @@ E[54]="Warp / warp-go was detected to be running. Please enter the correct serve
 C[54]="检测到 warp / warp-go 正在运行，请输入确认的服务器 IP:"
 E[55]="The script runs today: \$TODAY. Total: \$TOTAL"
 C[55]="脚本当天运行次数: \$TODAY，累计运行次数: \$TOTAL"
-E[56]="Please enter the Reality port \(Default is \${REALITY_PORT_DEFAULT}\):"
-C[56]="请输入 Reality 的端口号 \(默认为 \${REALITY_PORT_DEFAULT}\):"
-E[57]="Please enter VPS IP \(Default is: \${SERVER_IP_DEFAULT}\):"
-C[57]="请输入 VPS IP \(默认为: \${SERVER_IP_DEFAULT}\):"
+E[56]="\(3/7\) Please enter the Reality port \(Default is \${REALITY_PORT_DEFAULT}\):"
+C[56]="\(3/7\) 请输入 Reality 的端口号 \(默认为 \${REALITY_PORT_DEFAULT}\):"
+E[57]="\(1/7\) Please enter VPS IP \(Default is: \${SERVER_IP_DEFAULT}\):"
+C[57]="\(1/7\) 请输入 VPS IP \(默认为: \${SERVER_IP_DEFAULT}\):"
 E[58]="Install ArgoX scripts (argo + xray) [https://github.com/fscarmen/argox]"
 C[58]="安装 ArgoX 脚本 (argo + xray) [https://github.com/fscarmen/argox]"
 E[59]="To uninstall Nginx press [y], it is not uninstalled by default:"
@@ -178,6 +178,13 @@ translate() {
 # 检测是否需要启用 Github CDN，如能直接连通，则不使用
 check_cdn() {
   wget --server-response --quiet --output-document=/dev/null --no-check-certificate --tries=2 --timeout=3 https://raw.githubusercontent.com/fscarmen/sba/main/README.md >/dev/null 2>&1 && unset GH_PROXY
+}
+
+# 检测是否解锁 chatGPT，以决定是否使用 warp 链式代理或者是 direct out
+check_chatgpt() {
+  local CHECK_STACK=$1
+  local SUPPORT_COUNTRY=(AL DZ AD AO AG AR AM AU AT AZ BS BD BB BE BZ BJ BT BO BA BW BR BN BG BF CV CA CL CO KM CG CR CI HR CY CZ DK DJ DM DO EC SV EE FJ FI FR GA GM GE DE GH GR GD GT GN GW GY HT VA HN HU IS IN ID IQ IE IL IT JM JP JO KZ KE KI KW KG LV LB LS LR LI LT LU MG MW MY MV ML MT MH MR MU MX FM MD MC MN ME MA MZ MM NA NR NP NL NZ NI NE NG MK NO OM PK PW PS PA PG PY PE PH PL PT QA RO RW KN LC VC WS SM ST SN RS SC SL SG SK SI SB ZA KR ES LK SR SE CH TW TZ TH TL TG TO TT TN TR TV UG UA AE GB US UY VU ZM)
+  [[ "${SUPPORT_COUNTRY[@]}" =~ $(wget --no-check-certificate -$CHECK_STACK -qO- --tries=3 --timeout=2 https://chat.openai.com/cdn-cgi/trace | awk -F '=' '/loc/{print $2}') ]] && echo 'unlock' || echo 'ban'
 }
 
 # 脚本当天及累计运行次数统计
@@ -224,7 +231,7 @@ check_install() {
   fi
   [[ ${STATUS[0]} = "$(text 26)" ]] && [ ! -s $WORK_DIR/cloudflared ] &&
   {
-    wget --no-check-certificate -qO $TEMP_DIR/cloudflared https://${GH_PROXY}github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-$ARGO_ARCH >/dev/null 2>&1
+    wget --no-check-certificate -qO $TEMP_DIR/cloudflared ${GH_PROXY}https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-$ARGO_ARCH >/dev/null 2>&1
     chmod +x $TEMP_DIR/cloudflared >/dev/null 2>&1
   }&
   [[ ${STATUS[1]} = "$(text 26)" ]] && [ ! -s $WORK_DIR/sing-box ] &&
@@ -232,7 +239,7 @@ check_install() {
     local VERSION_LATEST=$(wget --no-check-certificate -qO- "https://api.github.com/repos/SagerNet/sing-box/releases" | awk -F '["v-]' '/tag_name/{print $5}' | sort -r | sed -n '1p')
     local SING_BOX_LATEST=$(wget --no-check-certificate -qO- "https://api.github.com/repos/SagerNet/sing-box/releases" | awk -F '["v]' -v var="tag_name.*$VERSION" '$0 ~ var {print $5; exit}')
     SING_BOX_LATEST=${SING_BOX_LATEST:-'1.9.0-beta.7'}
-    wget --no-check-certificate -c $TEMP_DIR/sing-box.tar.gz https://${GH_PROXY}github.com/SagerNet/sing-box/releases/download/v$SING_BOX_LATEST/sing-box-$SING_BOX_LATEST-linux-$SING_BOX_ARCH.tar.gz -qO- | tar xz -C $TEMP_DIR sing-box-$SING_BOX_LATEST-linux-$SING_BOX_ARCH/sing-box
+    wget --no-check-certificate -c $TEMP_DIR/sing-box.tar.gz ${GH_PROXY}https://github.com/SagerNet/sing-box/releases/download/v$SING_BOX_LATEST/sing-box-$SING_BOX_LATEST-linux-$SING_BOX_ARCH.tar.gz -qO- | tar xz -C $TEMP_DIR sing-box-$SING_BOX_LATEST-linux-$SING_BOX_ARCH/sing-box
     mv $TEMP_DIR/sing-box-$SING_BOX_LATEST-linux-$SING_BOX_ARCH/sing-box $TEMP_DIR >/dev/null 2>&1
   }&
 }
@@ -462,6 +469,10 @@ argo_variable() {
     WARP_ENDPOINT=2606:4700:d0::a29f:c101
     DOMAIN_STRATEG=prefer_ipv6
   fi
+
+  # 检测是否解锁 chatGPT
+  CHAT_GPT_OUT_V4=warp-IPv4-out; CHAT_GPT_OUT_V6=warp-IPv6-out;
+  [ "$(check_chatgpt ${DOMAIN_STRATEG: -1})" = 'unlock' ] && CHAT_GPT_OUT_V4=direct && CHAT_GPT_OUT_V6=direct
 
   # 输入服务器 IP,默认为检测到的服务器 IP，如果全部为空，则提示并退出脚本
   [ -z "$SERVER_IP" ] && reading "\n $(text 57) " SERVER_IP
@@ -992,11 +1003,11 @@ EOF
         "rules":[
             {
                 "domain":"api.openai.com",
-                "outbound":"warp-IPv4-out"
+                "outbound":"$CHAT_GPT_OUT_V4"
             },
             {
                 "rule_set":"geosite-openai",
-                "outbound":"warp-IPv6-out"
+                "outbound":"$CHAT_GPT_OUT_V6"
             }
         ]
     }
@@ -1151,11 +1162,13 @@ trojan://${UUID}@${SERVER}:443?security=tls&sni=${ARGO_DOMAIN}&type=ws&host=${AR
   # 生成 Sing-box 订阅文件
   local INBOUND_REPLACE="{ \"type\":\"vless\", \"tag\":\"${NODE_NAME} vless-reality-vision\", \"server\":\"${SERVER_IP}\", \"server_port\":${REALITY_PORT}, \"uuid\":\"${UUID}\", \"flow\":\"\", \"packet_encoding\":\"xudp\", \"tls\":{ \"enabled\":true, \"server_name\":\"${TLS_SERVER}\", \"utls\":{ \"enabled\":true, \"fingerprint\":\"chrome\" }, \"reality\":{ \"enabled\":true, \"public_key\":\"${REALITY_PUBLIC}\", \"short_id\":\"\" } }, \"multiplex\":{ \"enabled\":true, \"protocol\":\"h2mux\", \"max_connections\":16, \"padding\": true } }, { \"type\": \"vless\", \"tag\": \"${NODE_NAME}-Vl\", \"server\":\"${SERVER}\", \"server_port\":443, \"uuid\":\"${UUID}\", \"tls\": { \"enabled\":true, \"server_name\":\"${ARGO_DOMAIN}\", \"utls\": { \"enabled\":true, \"fingerprint\":\"chrome\" } }, \"transport\": { \"type\":\"ws\", \"path\":\"/${WS_PATH}-vl\", \"headers\": { \"Host\": \"${ARGO_DOMAIN}\" }, \"max_early_data\":2408, \"early_data_header_name\":\"Sec-WebSocket-Protocol\" }, \"multiplex\": { \"enabled\":true, \"protocol\":\"h2mux\", \"max_streams\":16, \"padding\": true } }, { \"type\": \"vmess\", \"tag\": \"${NODE_NAME}-Vm\", \"server\":\"${SERVER}\", \"server_port\":443, \"uuid\":\"${UUID}\", \"tls\": { \"enabled\":true, \"server_name\":\"${ARGO_DOMAIN}\", \"utls\": { \"enabled\":true, \"fingerprint\":\"chrome\" } }, \"transport\": { \"type\":\"ws\", \"path\":\"/${WS_PATH}-vm\", \"headers\": { \"Host\": \"${ARGO_DOMAIN}\" }, \"max_early_data\":2408, \"early_data_header_name\":\"Sec-WebSocket-Protocol\" }, \"multiplex\": { \"enabled\":true, \"protocol\":\"h2mux\", \"max_streams\":16, \"padding\": true } }, { \"type\":\"trojan\", \"tag\":\"${NODE_NAME}-Tr\", \"server\": \"${SERVER}\", \"server_port\": 443, \"password\": \"${UUID}\", \"tls\": { \"enabled\":true, \"server_name\":\"${ARGO_DOMAIN}\", \"utls\": { \"enabled\":true, \"fingerprint\":\"chrome\" } }, \"transport\": { \"type\":\"ws\", \"path\":\"/${WS_PATH}-tr\", \"headers\": { \"Host\": \"${ARGO_DOMAIN}\" }, \"max_early_data\":2408, \"early_data_header_name\":\"Sec-WebSocket-Protocol\" }, \"multiplex\": { \"enabled\":true, \"protocol\":\"h2mux\", \"max_connections\": 16, \"padding\": true } }"
   local NODE_REPLACE="\"${NODE_NAME} vless-reality-vision\", \"${NODE_NAME}-Vl\", \"${NODE_NAME}-Vm\", \"${NODE_NAME}-Tr\""
-  local PC_TEMPLATE=$(wget --no-check-certificate -qO- --tries=3 --timeout=2 ${GH_PROXY}${SUBSCRIBE_TEMPLATE}/sing-box-pc)
-  local PHONE_TEMPLATE=$(wget --no-check-certificate -qO- --tries=3 --timeout=2 ${GH_PROXY}${SUBSCRIBE_TEMPLATE}/sing-box-phone)
 
-  echo $PC_TEMPLATE | sed "s#\"<INBOUND_REPLACE>\"#$INBOUND_REPLACE#; s#\"<NODE_REPLACE>\"#$NODE_REPLACE#g" | jq > $WORK_DIR/subscribe/sing-box-pc
-  echo $PHONE_TEMPLATE | sed "s#\"<INBOUND_REPLACE>\"#$INBOUND_REPLACE#; s#\"<NODE_REPLACE>\"#$NODE_REPLACE#g" | jq > $WORK_DIR/subscribe/sing-box-phone
+  # 模板1
+  local SING_BOX_JSON1=$(wget --no-check-certificate -qO- --tries=3 --timeout=2 ${GH_PROXY}${SUBSCRIBE_TEMPLATE}/sing-box1)
+  echo $SING_BOX_JSON1 | sed 's#, {[^}]\+"tun-in"[^}]\+}##' | sed "s#\"<INBOUND_REPLACE>\"#$INBOUND_REPLACE#; s#\"<NODE_REPLACE>\"#$NODE_REPLACE#g" | jq > $WORK_DIR/subscribe/sing-box-pc
+  echo $SING_BOX_JSON1 | sed 's# {[^}]\+"mixed"[^}]\+},##; s#, "auto_detect_interface": true##' | sed "s#\"<INBOUND_REPLACE>\"#$INBOUND_REPLACE#; s#\"<NODE_REPLACE>\"#$NODE_REPLACE#g" | jq > $WORK_DIR/subscribe/sing-box-phone
+
+  # 模板2
   fetch_subscribe singbox $WORK_DIR/subscribe/proxies https://${ARGO_DOMAIN}/${UUID}/proxies | jq > $WORK_DIR/subscribe/sing-box2
 
   # 生成二维码 url 文件
@@ -1240,12 +1253,16 @@ https://${ARGO_DOMAIN}/${UUID}/base64")
 
 $(info "Clash $(text 66):
 https://${ARGO_DOMAIN}/${UUID}/clash
+https://${ARGO_DOMAIN}/${UUID}/clash2
 
 sing-box for pc $(text 66):
 https://${ARGO_DOMAIN}/${UUID}/sing-box-pc
 
 sing-box for cellphone $(text 66):
 https://${ARGO_DOMAIN}/${UUID}/sing-box-phone
+
+SFI / SFA / SFM $(text 66):
+http://${SERVER_IP_1}:${PORT_NGINX}/${UUID_CONFIRM}/sing-box2
 
 ShadowRocket $(text 66):
 https://${ARGO_DOMAIN}/${UUID}/shadowrocket")
@@ -1359,7 +1376,7 @@ version() {
 
   [[ ${UPDATE[*],,} =~ 'y' ]] && check_system_info
   if [ ${UPDATE[0],,} = 'y' ]; then
-    wget --no-check-certificate -O $TEMP_DIR/cloudflared https://${GH_PROXY}github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-$ARGO_ARCH
+    wget --no-check-certificate -O $TEMP_DIR/cloudflared ${GH_PROXY}https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-$ARGO_ARCH
     if [ -s $TEMP_DIR/cloudflared ]; then
       cmd_systemctl disable argo
       chmod +x $TEMP_DIR/cloudflared && mv $TEMP_DIR/cloudflared $WORK_DIR/cloudflared
@@ -1369,7 +1386,7 @@ version() {
     fi
   fi
   if [ ${UPDATE[1],,} = 'y' ]; then
-    wget --no-check-certificate -c https://${GH_PROXY}github.com/SagerNet/sing-box/releases/download/v$ONLINE/sing-box-$ONLINE-linux-$SING_BOX_ARCH.tar.gz -qO- | tar xz -C $TEMP_DIR sing-box-$ONLINE-linux-$SING_BOX_ARCH/sing-box
+    wget --no-check-certificate -c ${GH_PROXY}https://github.com/SagerNet/sing-box/releases/download/v$ONLINE/sing-box-$ONLINE-linux-$SING_BOX_ARCH.tar.gz -qO- | tar xz -C $TEMP_DIR sing-box-$ONLINE-linux-$SING_BOX_ARCH/sing-box
     if [ -s $TEMP_DIR/sing-box-$ONLINE-linux-$SING_BOX_ARCH/sing-box ]; then
       cmd_systemctl disable sing-box
       mv $TEMP_DIR/sing-box-$ONLINE-linux-$SING_BOX_ARCH/sing-box $WORK_DIR
@@ -1440,7 +1457,7 @@ menu_setting() {
 
 menu() {
   clear
-  hint " $(text 2) "
+  ### hint " $(text 2) "
   echo -e "======================================================================================================================\n"
   info " $(text 17):$VERSION\n $(text 18):$(text 1)\n $(text 19):\n\t $(text 20):$SYS\n\t $(text 21):$(uname -r)\n\t $(text 22):$ARCHITECTURE\n\t $(text 23):$VIRT "
   info "\t IPv4: $WAN4 $WARPSTATUS4 $COUNTRY4  $ASNORG4 "
