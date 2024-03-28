@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # 当前脚本版本号
-VERSION='1.0.8 (2024.03.24)'
+VERSION='1.0.9 (2024.03.26)'
 
 # 各变量默认值
 WS_PATH_DEFAULT='sba'
@@ -20,8 +20,8 @@ mkdir -p $TEMP_DIR
 
 E[0]="Language:\n 1. English (default) \n 2. 简体中文"
 C[0]="${E[0]}"
-E[1]="1. In the Sing-box client, add the brutal field in the TCP protocol to make it effective; 2. Compatible with CentOS 7,8,9; 3. Remove default Github CDN; 4. Dependency jq changed from apt install to official download binary."
-C[1]="1. 在 Sing-box 客户端，TCP 协议协议里加上 brutal 字段以生效; 2. 适配 CentOS 7,8,9; 3. 去掉默认的 Github 加速网; 4. 依赖 jq 从 apt 安装改为官方下载二进制"
+E[1]="Thanks to UUb for the official change of the compilation, dependencies jq, qrencode from apt installation to download the binary files, reduce the installation time of about 15 seconds, the implementation of the project's positioning of lightweight, as far as possible to install the least system dependencies."
+C[1]="感谢 UUb 兄弟的官改编译，依赖 jq, qrencode 从 apt 安装改为下载二进制文件，缩减安装时间约15秒，贯彻项目轻量化的定位，尽最大可能安装最少的系统依赖"
 E[2]="Project to create Argo tunnels and Sing-box specifically for VPS, detailed:[https://github.com/fscarmen/sba]\n Features:\n\t • Allows the creation of Argo tunnels via Token, Json and ad hoc methods. User can easily obtain the json at https://fscarmen.cloudflare.now.cc .\n\t • Extremely fast installation method, saving users time.\n\t • Support system: Ubuntu, Debian, CentOS, Alpine and Arch Linux 3.\n\t • Support architecture: AMD,ARM and s390x\n"
 C[2]="本项目专为 VPS 添加 Argo 隧道及 Sing-Box,详细说明: [https://github.com/fscarmen/sba]\n 脚本特点:\n\t • 允许通过 Token, Json 及 临时方式来创建 Argo 隧道,用户通过以下网站轻松获取 json: https://fscarmen.cloudflare.now.cc\n\t • 极速安装方式,大大节省用户时间\n\t • 智能判断操作系统: Ubuntu 、Debian 、CentOS 、Alpine 和 Arch Linux,请务必选择 LTS 系统\n\t • 支持硬件结构类型: AMD 和 ARM\n"
 E[3]="Input errors up to 5 times.The script is aborted."
@@ -144,8 +144,8 @@ E[61]="Enable multiplexing"
 C[61]="可开启多路复用"
 E[62]="Create shortcut [ sb ] successfully."
 C[62]="创建快捷 [ sb ] 指令成功!"
-E[63]="The full template can be found at:\n https://t.me/ztvps/67\n https://github.com/chika0801/sing-box-examples/tree/main/Tun"
-C[63]="完整模板可参照:\n https://t.me/ztvps/67\n https://github.com/chika0801/sing-box-examples/tree/main/Tun"
+E[63]="The full template can be found at:\n https://t.me/ztvps/100\n https://github.com/chika0801/sing-box-examples/tree/main/Tun"
+C[63]="完整模板可参照:\n https://t.me/ztvps/100\n https://github.com/chika0801/sing-box-examples/tree/main/Tun"
 E[64]="Install TCP brutal"
 C[64]="安装 TCP brutal"
 E[65]="No server ip, script exits. Feedback:[https://github.com/fscarmen/sba/issues]"
@@ -185,7 +185,7 @@ check_chatgpt() {
 
 # 脚本当天及累计运行次数统计
 statistics_of_run-times() {
-  local COUNT=$(wget -qO- --tries=2 --timeout=2 "https://hits.seeyoufarm.com/api/count/incr/badge.svg?url=https%3A%2F%2Fraw.githubusercontent.com%2Ffscarmen%2Fsba%2Fmain%2Fsba.sh" 2>&1 | grep -m1 -oE "[0-9]+[ ]+/[ ]+[0-9]+") &&
+  local COUNT=$(wget -qO- --tries=2 --timeout=2 "https://hits.seeyoufarm.com/api/count/incr/badge.svg?url=https://raw.githubusercontent.com/fscarmen/sba/main/sba.sh" 2>&1 | grep -m1 -oE "[0-9]+[ ]+/[ ]+[0-9]+") &&
   TODAY=$(awk -F ' ' '{print $1}' <<< "$COUNT") &&
   TOTAL=$(awk -F ' ' '{print $3}' <<< "$COUNT")
 }
@@ -209,9 +209,9 @@ check_root() {
 check_arch() {
   # 判断处理器架构
   case $(uname -m) in
-    aarch64|arm64 ) ARGO_ARCH=arm64 ; SING_BOX_ARCH=arm64; JQ_ARCH=arm64 ;;
-    x86_64|amd64 ) ARGO_ARCH=amd64 ; [[ "$(awk -F ':' '/flags/{print $2; exit}' /proc/cpuinfo)" =~ avx2 ]] && SING_BOX_ARCH=amd64v3 || SING_BOX_ARCH=amd64; JQ_ARCH=amd64 ;;
-    armv7l ) ARGO_ARCH=arm ; SING_BOX_ARCH=armv7; JQ_ARCH=armhf ;;
+    aarch64|arm64 ) ARGO_ARCH=arm64; SING_BOX_ARCH=arm64; JQ_ARCH=arm64; QRENCODE_ARCH=arm64 ;;
+    x86_64|amd64 ) ARGO_ARCH=amd64; [[ "$(awk -F ':' '/flags/{print $2; exit}' /proc/cpuinfo)" =~ avx2 ]] && SING_BOX_ARCH=amd64v3 || SING_BOX_ARCH=amd64; JQ_ARCH=amd64; QRENCODE_ARCH=amd64 ;;
+    armv7l ) ARGO_ARCH=arm; SING_BOX_ARCH=armv7; JQ_ARCH=armhf; QRENCODE_ARCH=arm ;;
     * ) error " $(text 25) " ;;
   esac
 }
@@ -234,10 +234,11 @@ check_install() {
   {
     local VERSION_LATEST=$(wget --no-check-certificate -qO- "https://api.github.com/repos/SagerNet/sing-box/releases" | awk -F '["v-]' '/tag_name/{print $5}' | sort -r | sed -n '1p')
     local SING_BOX_LATEST=$(wget --no-check-certificate -qO- "https://api.github.com/repos/SagerNet/sing-box/releases" | awk -F '["v]' -v var="tag_name.*$VERSION" '$0 ~ var {print $5; exit}')
-    SING_BOX_LATEST=${SING_BOX_LATEST:-'1.9.0-rc.2'}
+    SING_BOX_LATEST=${SING_BOX_LATEST:-'1.9.0-rc.3'}
     wget --no-check-certificate -c $TEMP_DIR/sing-box.tar.gz https://github.com/SagerNet/sing-box/releases/download/v$SING_BOX_LATEST/sing-box-$SING_BOX_LATEST-linux-$SING_BOX_ARCH.tar.gz -qO- | tar xz -C $TEMP_DIR sing-box-$SING_BOX_LATEST-linux-$SING_BOX_ARCH/sing-box
     mv $TEMP_DIR/sing-box-$SING_BOX_LATEST-linux-$SING_BOX_ARCH/sing-box $TEMP_DIR >/dev/null 2>&1
     wget --no-check-certificate --continue -qO $TEMP_DIR/jq https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux-$JQ_ARCH >/dev/null 2>&1 && chmod +x $TEMP_DIR/jq >/dev/null 2>&1
+    wget --no-check-certificate --continue -qO $TEMP_DIR/qrencode https://github.com/fscarmen/client_template/raw/main/qrencode-go/qrencode-go-linux-$QRENCODE_ARCH >/dev/null 2>&1 && chmod +x $TEMP_DIR/qrencode >/dev/null 2>&1
   }&
 }
 
@@ -420,7 +421,7 @@ check_system_info() {
   done
   [ -z "$SYSTEM" ] && error " $(text 5) "
 
-  # 针对各厂运的订制系统
+  # 针对各厂商的订制系统
   if [ -z "$SYSTEM" ]; then
     [ $(type -p yum) ] && int=2 && SYSTEM='CentOS' || error " $(text 5) "
   fi
@@ -558,15 +559,17 @@ sing_box_variable() {
   WS_PATH=${WS_PATH:-"$WS_PATH_DEFAULT"}
 
   # 输入节点名，以系统的 hostname 作为默认
-  if [ $(type -p hostname) ]; then
-    NODE_NAME_DEFAULT="$(hostname)"
-  elif [ -s /etc/hostname ]; then
-    NODE_NAME_DEFAULT="$(cat /etc/hostname)"
-  else
-    NODE_NAME_DEFAULT="sba"
+  if [ -z "$NODE_NAME" ]; then
+    if [ $(type -p hostname) ]; then
+      NODE_NAME_DEFAULT="$(hostname)"
+    elif [ -s /etc/hostname ]; then
+      NODE_NAME_DEFAULT="$(cat /etc/hostname)"
+    else
+      NODE_NAME_DEFAULT="sba"
+    fi
+    reading "\n $(text 49) " NODE_NAME
+    NODE_NAME="${NODE_NAME:-"$NODE_NAME_DEFAULT"}"
   fi
-  reading "\n $(text 49) " NODE_NAME
-  NODE_NAME="${NODE_NAME:-"$NODE_NAME_DEFAULT"}"
 }
 
 check_dependencies() {
@@ -575,35 +578,32 @@ check_dependencies() {
     CHECK_WGET=$(wget 2>&1 | head -n 1)
     grep -qi 'busybox' <<< "$CHECK_WGET" && ${PACKAGE_INSTALL[int]} wget >/dev/null 2>&1
 
-    local DEPS_CHECK=("bash" "rc-update" "virt-what" "qrencode")
-    local DEPS_INSTALL=("bash" "openrc" "virt-what" "libqrencode")
+    local DEPS_CHECK=("bash" "rc-update" "virt-what" "python3")
+    local DEPS_INSTALL=("bash" "openrc" "virt-what" "python3")
     for g in "${!DEPS_CHECK[@]}"; do
-      [ ! $(type -p ${DEPS_CHECK[g]}) ] && [[ ! "${DEPS[@]}" =~ "${DEPS_INSTALL[g]}" ]] && DEPS+=(${DEPS_INSTALL[g]})
+      [ ! $(type -p ${DEPS_CHECK[g]}) ] && DEPS_ALPINE+=(${DEPS_INSTALL[g]})
     done
-    if [ "${#DEPS[@]}" -ge 1 ]; then
-      info "\n $(text 7) $(sed "s/ /,&/g" <<< ${DEPS[@]}) \n"
+    if [ "${#DEPS_ALPINE[@]}" -ge 1 ]; then
+      info "\n $(text 7) $(sed "s/ /,&/g" <<< ${DEPS_ALPINE[@]}) \n"
       ${PACKAGE_UPDATE[int]} >/dev/null 2>&1
-      ${PACKAGE_INSTALL[int]} ${DEPS[@]} >/dev/null 2>&1
+      ${PACKAGE_INSTALL[int]} ${DEPS_ALPINE[@]} >/dev/null 2>&1
+      [[ -z "$VIRT" && "${DEPS_ALPINE[@]}" =~ 'virt-what' ]] && VIRT=$(virt-what)      
     fi
 
-    [ ! $(type -p systemctl) ] && wget --no-check-certificate https://raw.githubusercontent.com/gdraheim/docker-systemctl-replacement/master/files/docker/systemctl3.py -O /bin/systemctl && chmod a+x /bin/systemctl
+    [ ! $(type -p systemctl) ] && wget --no-check-certificate --quiet https://raw.githubusercontent.com/gdraheim/docker-systemctl-replacement/master/files/docker/systemctl3.py -O /bin/systemctl && chmod a+x /bin/systemctl
   fi
 
   # 检测 Linux 系统的依赖，升级库并重新安装依赖
-  unset DEPS_CHECK DEPS_INSTALL DEPS g
   local DEPS_CHECK=("wget" "systemctl" "ss" "tar" "bash" "nginx" "openssl")
   local DEPS_INSTALL=("wget" "systemctl" "iproute2" "tar" "bash" "nginx" "openssl")
 
-  # CentOS 没有 qrencode
-  [[ "$SYSTEM" != 'Alpine' && "$IS_CENTOS" != 'CentOS9' ]] && DEPS_CHECK+=("qrencode") &&  DEPS_INSTALL+=("qrencode")
-
   for g in "${!DEPS_CHECK[@]}"; do
-    [ ! $(type -p ${DEPS_CHECK[g]}) ] && [[ ! "${DEPS[@]}" =~ "${DEPS_INSTALL[g]}" ]] && DEPS+=(${DEPS_INSTALL[g]})
+    [ ! $(type -p ${DEPS_CHECK[g]}) ] && DEPS+=(${DEPS_INSTALL[g]})
   done
 
   if [ "${#DEPS[@]}" -ge 1 ]; then
     info "\n $(text 7) $(sed "s/ /,&/g" <<< ${DEPS[@]}) \n"
-    ${PACKAGE_UPDATE[int]} >/dev/null 2>&1
+    [ "$SYSTEM" != 'CentOS' ] && ${PACKAGE_UPDATE[int]} >/dev/null 2>&1
     ${PACKAGE_INSTALL[int]} ${DEPS[@]} >/dev/null 2>&1
   else
     info "\n $(text 8) \n"
@@ -786,11 +786,12 @@ install_sba() {
   [ ! -d /etc/systemd/system ] && mkdir -p /etc/systemd/system
   mkdir -p $WORK_DIR/sing-box-conf $WORK_DIR/subscribe $WORK_DIR/logs $WORK_DIR/cert && echo "$L" > $WORK_DIR/language
   [ -s "$VARIABLE_FILE" ] && cp $VARIABLE_FILE $WORK_DIR/
-  # Argo 生成守护进程文件
-  local i=1
-  [ ! -s $WORK_DIR/cloudflared ] && wait && while [ "$i" -le 20 ]; do [ -s $TEMP_DIR/cloudflared ] && mv $TEMP_DIR/cloudflared $WORK_DIR && break; ((i++)); sleep 2; done
-  [ ! -s $WORK_DIR/jq ] && wait && while [ "$i" -le 20 ]; do [ -s $TEMP_DIR/jq ] && mv $TEMP_DIR/jq $WORK_DIR && break; ((i++)); sleep 2; done
-  [ "$i" -ge 20 ] && local APP=ARGO && error "\n $(text 48) "
+
+  # 把临时目录下载的可执行二进制文件移动到工作目录
+  for g in {cloudflared,jq,qrencode}; do
+    [[ ! -s $WORK_DIR/$g && -x $TEMP_DIR/$g ]] && mv $TEMP_DIR/$g $WORK_DIR
+  done
+
   if [[ -n "${ARGO_JSON}" && -n "${ARGO_DOMAIN}" ]]; then
     ARGO_RUNS="$WORK_DIR/cloudflared tunnel --edge-ip-version auto --config $WORK_DIR/tunnel.yml run"
     json_argo
@@ -803,6 +804,7 @@ install_sba() {
   # 生成100年的自签证书
   openssl ecparam -genkey -name prime256v1 -out $WORK_DIR/cert/private.key && openssl req -new -x509 -days 36500 -key $WORK_DIR/cert/private.key -out $WORK_DIR/cert/cert.pem -subj "/CN=$(awk -F . '{print $(NF-1)"."$NF}' <<< "$TLS_SERVER")"
 
+  # Argo 生成守护进程文件
   local ARGO_SERVER="[Unit]
 Description=Cloudflare Tunnel
 After=network.target
@@ -1104,10 +1106,15 @@ EOF
 }
 
 export_list() {
-  # v1.0.8 处理的 jq 问题
-  [[ ! -s $WORK_DIR/jq && -s /usr/bin/jq ]] && cp /usr/bin/jq $WORK_DIR/
-
   check_install
+
+  # v1.0.9 处理的 jq 和 qrencode 二进制文件代替系统依赖的问题，此处预计6月30日删除
+  [[ ! -s $WORK_DIR/jq && -s /usr/bin/jq ]] && cp /usr/bin/jq $WORK_DIR/
+  if [ ! -s $WORK_DIR/qrencode ]; then
+    check_arch
+    wget -qO $WORK_DIR/qrencode https://github.com/fscarmen/client_template/raw/main/qrencode-go/qrencode-go-linux-$QRENCODE_ARCH && chmod +x $WORK_DIR/qrencode
+  fi
+
   # 没有开启 Argo 和 Sing-box 服务，将不输出节点信息
   local APP
   [ "${STATUS[0]}" != "$(text 28)" ] && APP+=(argo)
@@ -1203,7 +1210,8 @@ trojan://${UUID}@${SERVER}:443?security=tls&sni=${ARGO_DOMAIN}&type=ws&host=${AR
   fetch_subscribe singbox $WORK_DIR/subscribe/proxies https://${ARGO_DOMAIN}/${UUID}/proxies | $WORK_DIR/jq > $WORK_DIR/subscribe/sing-box2
 
   # 生成二维码 url 文件
-  OUTPUT_QR="$(text 69) 1:
+  cat > $WORK_DIR/subscribe/qr << EOF
+$(text 69) 1:
 https://${ARGO_DOMAIN}/${UUID}/auto
 
 $(text 69) 2:
@@ -1215,19 +1223,17 @@ https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=https://${ARGO_DOM
 
 $(text 69) 2:
 https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=https://${ARGO_DOMAIN}/${UUID}/auto2
-"
 
-  [ $(type -p qrencode) ] && OUTPUT_QR+="
 $(text 69) 1:
-$(qrencode -s 10 -m 1 -t UTF8 <<< "https://${ARGO_DOMAIN}/${UUID}/auto")
+$($WORK_DIR/qrencode "https://${ARGO_DOMAIN}/${UUID}/auto")
 
 $(text 69) 2:
-$(qrencode -s 10 -m 1 -t UTF8 <<< "https://${ARGO_DOMAIN}/${UUID}/auto2")"
-
-  echo "$OUTPUT_QR" > $WORK_DIR/subscribe/qr
+$($WORK_DIR/qrencode "https://${ARGO_DOMAIN}/${UUID}/auto2")
+EOF
 
   # 生成客户端配置文件
-  EXPORT_LIST_FILE="*******************************************
+  cat > $WORK_DIR/list << EOF
+*******************************************
 ┌────────────────┐  ┌────────────────┐
 │                │  │                │
 │     $(warning "V2rayN")     │  │    $(warning "NekoBox")     │
@@ -1313,22 +1319,19 @@ https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=https://${ARGO_DOM
 
 $(text 69) 2:
 https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=https://${ARGO_DOMAIN}/${UUID}/auto2")
-"
 
-  [ $(type -p qrencode) ] && EXPORT_LIST_FILE+="
 $(hint "$(text 69) 1:")
-$(qrencode -s 10 -m 1 -t UTF8 <<< https://${ARGO_DOMAIN}/${UUID}/auto)
+$($WORK_DIR/qrencode https://${ARGO_DOMAIN}/${UUID}/auto)
 
 $(hint "$(text 69) 2:")
-$(qrencode -s 10 -m 1 -t UTF8 <<< https://${ARGO_DOMAIN}/${UUID}/auto2)
-"
-  [ $(type -p qrencode) ] && EXPORT_LIST_FILE+="
+$($WORK_DIR/qrencode https://${ARGO_DOMAIN}/${UUID}/auto2)
+
 *******************************************
 
-$(info " ${QUICK_TUNNEL_URL} ")"
+$(info " ${QUICK_TUNNEL_URL} ")
+EOF
 
-  # 生成并显示节点信息
-  echo "$EXPORT_LIST_FILE" > $WORK_DIR/list
+  # 显示节点信息
   cat $WORK_DIR/list
 
   # 显示脚本使用情况数据
@@ -1386,15 +1389,19 @@ uninstall() {
     cmd_systemctl disable argo
     cmd_systemctl disable sing-box
     rm -rf $WORK_DIR $TEMP_DIR /etc/systemd/system/{sing-box,argo}.service /usr/bin/sb
-    [ $(ps -ef | grep 'nginx' | wc -l) -le 1 ] && reading " $(text 59) " REMOVE_NGINX
-    [ "${REMOVE_NGINX,,}" = 'y' ] && ${PACKAGE_UNINSTALL[int]} nginx
+    [ $(ps -ef | grep 'nginx' | wc -l) -le 1 ] && reading "\n $(text 59) " REMOVE_NGINX
+    [ "${REMOVE_NGINX,,}" = 'y' ] && ${PACKAGE_UNINSTALL[int]} nginx >/dev/null 2>&1
     info "\n $(text 16) \n"
   else
     error "\n $(text 15) \n"
   fi
 
-  # 如果 Alpine 系统，删除开机自启动
-  [ "$SYSTEM" = 'Alpine' ] && ( rm -f /etc/local.d/argo.start /etc/local.d/sing-box.start; rc-update add local >/dev/null 2>&1 )
+  # 如果 Alpine 系统，删除开机自启动和python3版systemd
+  if [ "$SYSTEM" = 'Alpine' ]; then
+    rm -f /etc/local.d/argo.start /etc/local.d/sing-box.start
+    rc-update add local >/dev/null 2>&1
+    [ ! $(ls /etc/systemd/system/*.service) ] && rm -f /bin/systemctl
+  fi
 }
 
 # Argo 与 Sing-box 的最新版本
@@ -1495,7 +1502,7 @@ menu() {
   clear
   ### hint " $(text 2) "
   echo -e "======================================================================================================================\n"
-  info " $(text 17):$VERSION\n $(text 18):$(text 1)\n $(text 19):\n\t $(text 20):$SYS\n\t $(text 21):$(uname -r)\n\t $(text 22):$ARCHITECTURE\n\t $(text 23):$VIRT "
+  info " $(text 17):$VERSION\n $(text 18):$(text 1)\n $(text 19):\n\t $(text 20):$SYS\n\t $(text 21):$(uname -r)\n\t $(text 22):$SING_BOX_ARCH\n\t $(text 23):$VIRT "
   info "\t IPv4: $WAN4 $WARPSTATUS4 $COUNTRY4  $ASNORG4 "
   info "\t IPv6: $WAN6 $WARPSTATUS6 $COUNTRY6  $ASNORG6 "
   info "\t Argo: ${STATUS[0]}\t $ARGO_VERSION\t $AEGO_MEMORY\t $ARGO_CHECKHEALTH\n\t Sing-box: ${STATUS[1]}\t $SING_BOX_VERSION\t\t $SING_BOX_MEMORY\n\t Nginx: ${STATUS[0]}\t $NGINX_VERSION\t $NGINX_MEMORY "
