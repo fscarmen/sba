@@ -4,18 +4,18 @@
 VERSION='1.0.10 (2024.05.21)'
 
 # 各变量默认值
-GH_PROXY='https://ghproxy.agrayman.gay/'
+GH_PROXY='https://ghproxy.lvedong.eu.org/'
 WS_PATH_DEFAULT='sba'
 WORK_DIR='/etc/sba'
 TEMP_DIR='/tmp/sba'
 TLS_SERVER=addons.mozilla.org
-CDN_DOMAIN=("cn.azhz.eu.org" "acjp.cloudflarest.link" "xn--b6gac.eu.org" "dash.cloudflare.com" "skk.moe" "visa.com")
+CDN_DOMAIN=("cn.azhz.eu.org" "acjp2.cloudflarest.link" "xn--b6gac.eu.org" "dash.cloudflare.com" "skk.moe" "visa.com")
 SUBSCRIBE_TEMPLATE="https://raw.githubusercontent.com/fscarmen/client_template/main"
 METRICS_PORT='3014'
 
 export DEBIAN_FRONTEND=noninteractive
 
-trap "rm -rf $TEMP_DIR; echo -e '\n' ;exit 1" INT QUIT TERM EXIT
+trap "rm -rf $TEMP_DIR; echo -e '\n' ;exit" INT QUIT TERM EXIT
 
 mkdir -p $TEMP_DIR
 
@@ -246,9 +246,9 @@ check_install() {
   }&
   [[ ${STATUS[1]} = "$(text 26)" ]] && [ ! -s $WORK_DIR/sing-box ] &&
   {
-    local VERSION_LATEST=$(wget --no-check-certificate -qO- ${GH_PROXY}https://api.github.com/repos/SagerNet/sing-box/releases | awk -F '["v-]' '/tag_name/{print $5}' | sort -r | sed -n '1p')
+    local VERSION_LATEST=$(wget --no-check-certificate -qO- ${GH_PROXY}https://api.github.com/repos/SagerNet/sing-box/releases | awk -F '["v-]' '/tag_name/{print $5}' | sort -Vr | sed -n '1p')
     local SING_BOX_LATEST=$(wget --no-check-certificate -qO- ${GH_PROXY}https://api.github.com/repos/SagerNet/sing-box/releases | awk -F '["v]' -v var="tag_name.*$VERSION" '$0 ~ var {print $5; exit}')
-    SING_BOX_LATEST=${SING_BOX_LATEST:-'1.9.0-rc.3'}
+    SING_BOX_LATEST=${SING_BOX_LATEST:-'1.10.0-alpha.13'}
     wget --no-check-certificate -c $TEMP_DIR/sing-box.tar.gz ${GH_PROXY}https://github.com/SagerNet/sing-box/releases/download/v$SING_BOX_LATEST/sing-box-$SING_BOX_LATEST-linux-$SING_BOX_ARCH.tar.gz -qO- | tar xz -C $TEMP_DIR sing-box-$SING_BOX_LATEST-linux-$SING_BOX_ARCH/sing-box
     mv $TEMP_DIR/sing-box-$SING_BOX_LATEST-linux-$SING_BOX_ARCH/sing-box $TEMP_DIR >/dev/null 2>&1
     wget --no-check-certificate --continue -qO $TEMP_DIR/jq ${GH_PROXY}https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux-$JQ_ARCH >/dev/null 2>&1 && chmod +x $TEMP_DIR/jq >/dev/null 2>&1
@@ -1273,7 +1273,7 @@ version() {
   local LOCAL=$($WORK_DIR/cloudflared -v | awk '{for (i=0; i<NF; i++) if ($i=="version") {print $(i+1)}}')
   local APP=ARGO && info "\n $(text 43) "
   [[ -n "$ONLINE" && "$ONLINE" != "$LOCAL" ]] && reading "\n $(text 9) " UPDATE[0] || info " $(text 44) "
-  local VERSION_LATEST=$(wget --no-check-certificate -qO- ${GH_PROXY}https://api.github.com/repos/SagerNet/sing-box/releases | awk -F '["v-]' '/tag_name/{print $5}' | sort -r | sed -n '1p')
+  local VERSION_LATEST=$(wget --no-check-certificate -qO- ${GH_PROXY}https://api.github.com/repos/SagerNet/sing-box/releases | awk -F '["v-]' '/tag_name/{print $5}' | sort -Vr | sed -n '1p')
   local ONLINE=$(wget --no-check-certificate -qO- ${GH_PROXY}https://api.github.com/repos/SagerNet/sing-box/releases | awk -F '["v]' -v var="tag_name.*$VERSION_LATEST" '$0 ~ var {print $5; exit}')
   local LOCAL=$($WORK_DIR/sing-box version | awk '/version/{print $NF}')
   local APP=Sing-box && info "\n $(text 43) "
