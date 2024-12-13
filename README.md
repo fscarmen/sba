@@ -14,6 +14,8 @@
 
 * * *
 ## 更新信息
+2024.5.21 v1.1.0 Compatible with Sing-box 1.11.0-beta.9+. Due to significant differences in the configuration files, it is not possible to upgrade from the old version. You can only reinstall the script; 适配 Sing-box 1.11.0-beta.9+，由于配置文件有很大差异，不能从旧版本升级，只能重装脚本
+
 2024.5.21 v1.0.10 1. Add Github CDN; 2. Remove subscription template 2; 1. 添加 Github 加速 CDN; 2. 去掉订阅模板2
 
 2024.3.26 v1.0.9 Thanks to UUb for the official change of the compilation, dependencies jq, qrencode from apt installation to download the binary files, reduce the installation time of about 15 seconds, the implementation of the project's positioning of lightweight, as far as possible to install the least system dependencies; 感谢 UUb 兄弟的官改编译，依赖 jq, qrencode 从 apt 安装改为下载二进制文件，缩减安装时间约15秒，贯彻项目轻量化的定位，尽最大可能安装最少的系统依赖

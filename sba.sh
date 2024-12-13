@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # 当前脚本版本号
-VERSION='1.0.10 (2024.05.21)'
+VERSION='1.1.0 (2024.12.13)'
 
 # 各变量默认值
 GH_PROXY='https://ghproxy.lvedong.eu.org/'
@@ -9,7 +9,7 @@ WS_PATH_DEFAULT='sba'
 WORK_DIR='/etc/sba'
 TEMP_DIR='/tmp/sba'
 TLS_SERVER=addons.mozilla.org
-CDN_DOMAIN=("8cc.free.hr" "cf.yutian.us.kg" "fan.yutian.us.kg" "xn--b6gac.eu.org" "dash.cloudflare.com" "skk.moe" "visa.com")
+CDN_DOMAIN=("8cc.free.hr" "fan.yutian.us.kg" "sn.okx.re" "xn--b6gac.eu.org" "dash.cloudflare.com" "skk.moe" "visa.com")
 SUBSCRIBE_TEMPLATE="https://raw.githubusercontent.com/fscarmen/client_template/main"
 METRICS_PORT='3014'
 
@@ -21,8 +21,8 @@ mkdir -p $TEMP_DIR
 
 E[0]="Language:\n 1. English (default) \n 2. 简体中文"
 C[0]="${E[0]}"
-E[1]="1. Add Github CDN; 2. Remove subscription template 2."
-C[1]="1. 添加 Github 加速 CDN; 2. 去掉订阅模板2"
+E[1]="Compatible with Sing-box 1.11.0-beta.9+. Due to significant differences in the configuration files, it is not possible to upgrade from the old version. You can only reinstall the script."
+C[1]="适配 Sing-box 1.11.0-beta.9+，由于配置文件有很大差异，不能从旧版本升级，只能重装脚本"
 E[2]="Project to create Argo tunnels and Sing-box specifically for VPS, detailed:[https://github.com/fscarmen/sba]\n Features:\n\t • Allows the creation of Argo tunnels via Token, Json and ad hoc methods. User can easily obtain the json at https://fscarmen.cloudflare.now.cc .\n\t • Extremely fast installation method, saving users time.\n\t • Support system: Ubuntu, Debian, CentOS, Alpine and Arch Linux 3.\n\t • Support architecture: AMD,ARM and s390x\n"
 C[2]="本项目专为 VPS 添加 Argo 隧道及 Sing-Box,详细说明: [https://github.com/fscarmen/sba]\n 脚本特点:\n\t • 允许通过 Token, Json 及 临时方式来创建 Argo 隧道,用户通过以下网站轻松获取 json: https://fscarmen.cloudflare.now.cc\n\t • 极速安装方式,大大节省用户时间\n\t • 智能判断操作系统: Ubuntu 、Debian 、CentOS 、Alpine 和 Arch Linux,请务必选择 LTS 系统\n\t • 支持硬件结构类型: AMD 和 ARM\n"
 E[3]="Input errors up to 5 times.The script is aborted."
@@ -212,7 +212,7 @@ check_arch() {
       ARGO_ARCH=arm64; SING_BOX_ARCH=arm64; JQ_ARCH=arm64; QRENCODE_ARCH=arm64
       ;;
     x86_64|amd64 )
-      ARGO_ARCH=amd64; [[ "$(awk -F ':' '/flags/{print $2; exit}' /proc/cpuinfo)" =~ avx2 ]] && SING_BOX_ARCH=amd64v3 || SING_BOX_ARCH=amd64; JQ_ARCH=amd64; QRENCODE_ARCH=amd64
+      ARGO_ARCH=amd64; SING_BOX_ARCH=amd64; JQ_ARCH=amd64; QRENCODE_ARCH=amd64
       ;;
     armv7l )
       ARGO_ARCH=arm; SING_BOX_ARCH=armv7; JQ_ARCH=armhf; QRENCODE_ARCH=arm
@@ -240,7 +240,7 @@ check_install() {
   {
     local VERSION_LATEST=$(wget --no-check-certificate -qO- ${GH_PROXY}https://api.github.com/repos/SagerNet/sing-box/releases | awk -F '["v-]' '/tag_name/{print $5}' | sort -Vr | sed -n '1p')
     local SING_BOX_LATEST=$(wget --no-check-certificate -qO- ${GH_PROXY}https://api.github.com/repos/SagerNet/sing-box/releases | awk -F '["v]' -v var="tag_name.*$VERSION" '$0 ~ var {print $5; exit}')
-    SING_BOX_LATEST=${SING_BOX_LATEST:-'1.10.0-alpha.13'}
+    SING_BOX_LATEST=${SING_BOX_LATEST:-'1.11.0-beta.9'}
     wget --no-check-certificate -c $TEMP_DIR/sing-box.tar.gz ${GH_PROXY}https://github.com/SagerNet/sing-box/releases/download/v$SING_BOX_LATEST/sing-box-$SING_BOX_LATEST-linux-$SING_BOX_ARCH.tar.gz -qO- | tar xz -C $TEMP_DIR sing-box-$SING_BOX_LATEST-linux-$SING_BOX_ARCH/sing-box
     mv $TEMP_DIR/sing-box-$SING_BOX_LATEST-linux-$SING_BOX_ARCH/sing-box $TEMP_DIR >/dev/null 2>&1
     wget --no-check-certificate --continue -qO $TEMP_DIR/jq ${GH_PROXY}https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux-$JQ_ARCH >/dev/null 2>&1 && chmod +x $TEMP_DIR/jq >/dev/null 2>&1
@@ -376,8 +376,7 @@ argo_variable() {
   fi
 
   # 检测是否解锁 chatGPT
-  CHAT_GPT_OUT_V4=warp-IPv4-out; CHAT_GPT_OUT_V6=warp-IPv6-out;
-  [ "$(check_chatgpt ${DOMAIN_STRATEG: -1})" = 'unlock' ] && CHAT_GPT_OUT_V4=direct && CHAT_GPT_OUT_V6=direct
+  [ "$(check_chatgpt ${DOMAIN_STRATEG: -1})" = 'unlock' ] && CHATGPT_OUT=direct || CHATGPT_OUT=warp-ep
 
   # 输入服务器 IP,默认为检测到的服务器 IP，如果全部为空，则提示并退出脚本
   [ -z "$SERVER_IP" ] && reading "\n $(text 57) " SERVER_IP
@@ -777,8 +776,6 @@ WantedBy=multi-user.target"
             "tag":"vless-in",
             "listen":"127.0.0.1",
             "listen_port":3011,
-            "sniff":true,
-            "sniff_override_destination":true,
             "transport":{
                 "type":"ws",
                 "path":"/${WS_PATH}-vl",
@@ -806,8 +803,6 @@ WantedBy=multi-user.target"
             "tag":"vmess-in",
             "listen":"127.0.0.1",
             "listen_port":3012,
-            "sniff":true,
-            "sniff_override_destination":true,
             "transport":{
                 "type":"ws",
                 "path":"/${WS_PATH}-vm",
@@ -835,8 +830,6 @@ WantedBy=multi-user.target"
             "tag":"trojan-in",
             "listen":"127.0.0.1",
             "listen_port":3013,
-            "sniff":true,
-            "sniff_override_destination":true,
             "transport":{
                 "type":"ws",
                 "path":"/${WS_PATH}-tr",
@@ -863,45 +856,39 @@ WantedBy=multi-user.target"
 EOF
   cat > $WORK_DIR/sing-box-conf/outbound.json << EOF
 {
+    "endpoints":[
+        {
+            "type":"wireguard",
+            "tag":"warp-ep",
+            "mtu":1280,
+            "address":[
+                "172.16.0.2/32",
+                "2606:4700:110:8a36:df92:102a:9602:fa18/128"
+            ],
+            "private_key":"YFYOAdbw1bKTHlNNi+aEjBM3BO7unuFC5rOkMRAz9XY=",
+            "peers": [
+              {
+                "address": "${WARP_ENDPOINT}",
+                "port":2408,
+                "public_key":"bmXOC+F1FxEMF9dyiK2H5/1SUtzH0JuVo51h2wPfgyo=",
+                "allowed_ips": [
+                  "0.0.0.0/0",
+                  "::/0"
+                ],
+                "reserved":[
+                    78,
+                    135,
+                    76
+                ]
+              }
+            ]
+        }
+    ],
     "outbounds":[
         {
             "type":"direct",
             "tag":"direct",
             "domain_strategy":"${DOMAIN_STRATEG}"
-        },
-        {
-            "type":"direct",
-            "tag":"warp-IPv4-out",
-            "detour":"wireguard-out",
-            "domain_strategy":"ipv4_only"
-        },
-        {
-            "type":"direct",
-            "tag":"warp-IPv6-out",
-            "detour":"wireguard-out",
-            "domain_strategy":"ipv6_only"
-        },
-        {
-            "type":"wireguard",
-            "tag":"wireguard-out",
-            "server":"${WARP_ENDPOINT}",
-            "server_port":2408,
-            "local_address":[
-                "172.16.0.2/32",
-                "2606:4700:110:8a36:df92:102a:9602:fa18/128"
-            ],
-            "private_key":"YFYOAdbw1bKTHlNNi+aEjBM3BO7unuFC5rOkMRAz9XY=",
-            "peer_public_key":"bmXOC+F1FxEMF9dyiK2H5/1SUtzH0JuVo51h2wPfgyo=",
-            "reserved":[
-                78,
-                135,
-                76
-            ],
-            "mtu":1280
-        },
-        {
-            "type":"block",
-            "tag":"block"
         }
     ],
     "route":{
@@ -915,12 +902,30 @@ EOF
         ],
         "rules":[
             {
-                "domain":"api.openai.com",
-                "outbound":"$CHAT_GPT_OUT_V4"
+                "action": "sniff"
             },
             {
-                "rule_set":"geosite-openai",
-                "outbound":"$CHAT_GPT_OUT_V6"
+                "action": "resolve",
+                "domain":[
+                    "api.openai.com"
+                ],
+                "strategy": "prefer_ipv4"
+            },
+            {
+                "action": "resolve",
+                "rule_set":[
+                    "geosite-openai"
+                ],
+                "strategy": "prefer_ipv6"
+            },
+            {
+                "domain":[
+                    "api.openai.com"
+                ],
+                "rule_set":[
+                    "geosite-openai"
+                ],
+                "outbound":"${CHATGPT_OUT}"
             }
         ]
     }
@@ -1016,7 +1021,7 @@ export_list() {
   if grep -q 'metrics.*url' /etc/systemd/system/argo.service; then
     local a=5
     until [[ -n "$ARGO_DOMAIN" || "$a" = 0 ]]; do
-      sleep 2
+      sleep 8
       ARGO_DOMAIN=$(wget -qO- http://localhost:$(sed -n 's/.*--metrics.*:\([0-9]\+\) .*/\1/gp' /etc/systemd/system/argo.service)/quicktunnel | awk -F '"' '{print $4}')
       ((a--)) || true
     done
