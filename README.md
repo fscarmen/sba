@@ -14,6 +14,8 @@
 
 * * *
 ## 更新信息
+2025.01.28 v1.1.2 1. Add server-side time synchronization configuration; 2. Replace some CDNs; 1. 添加服务端时间同步配置; 2. 替换某些 CDN
+
 2024.12.20 v1.1.1 Refactored the chatGPT detection method based on lmc999's detection and unlocking script; 根据 lmc999 的检测解锁脚本，重构了检测 chatGPT 方法
 
 2024.5.21 v1.1.0 Compatible with Sing-box 1.11.0-beta.9+. Due to significant differences in the configuration files, it is not possible to upgrade from the old version. You can only reinstall the script; 适配 Sing-box 1.11.0-beta.9+，由于配置文件有很大差异，不能从旧版本升级，只能重装脚本
