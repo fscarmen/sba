@@ -264,7 +264,7 @@ check_install() {
   {
     local VERSION_LATEST=$(wget --no-check-certificate -qO- ${GH_PROXY}https://api.github.com/repos/SagerNet/sing-box/releases | awk -F '["v-]' '/tag_name/{print $5}' | sort -Vr | sed -n '1p')
     local SING_BOX_LATEST=$(wget --no-check-certificate -qO- ${GH_PROXY}https://api.github.com/repos/SagerNet/sing-box/releases | awk -F '["v]' -v var="tag_name.*$VERSION" '$0 ~ var {print $5; exit}')
-    SING_BOX_LATEST=${SING_BOX_LATEST:-'1.12.0-alpha.18'}
+    SING_BOX_LATEST=${SING_BOX_LATEST:-'1.12.0-alpha.23'}
     wget --no-check-certificate -c $TEMP_DIR/sing-box.tar.gz ${GH_PROXY}https://github.com/SagerNet/sing-box/releases/download/v$SING_BOX_LATEST/sing-box-$SING_BOX_LATEST-linux-$SING_BOX_ARCH.tar.gz -qO- | tar xz -C $TEMP_DIR sing-box-$SING_BOX_LATEST-linux-$SING_BOX_ARCH/sing-box
     mv $TEMP_DIR/sing-box-$SING_BOX_LATEST-linux-$SING_BOX_ARCH/sing-box $TEMP_DIR >/dev/null 2>&1
     wget --no-check-certificate --continue -qO $TEMP_DIR/jq ${GH_PROXY}https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux-$JQ_ARCH >/dev/null 2>&1 && chmod +x $TEMP_DIR/jq >/dev/null 2>&1
@@ -391,18 +391,18 @@ argo_variable() {
     if [[ "$SERVER_IP" =~ : ]]; then
       STRATEGY=prefer_ipv6
     else
-      STRATEGY=prefer_ipv4
+      STRATEGY=ipv4_only
     fi
   elif [ -n "$WAN4" ]; then
     SERVER_IP_DEFAULT=$WAN4
-    STRATEGY=prefer_ipv4
+    STRATEGY=ipv4_only
   elif [ -n "$WAN6" ]; then
     SERVER_IP_DEFAULT=$WAN6
     STRATEGY=prefer_ipv6
   fi
 
   # 检测是否解锁 chatGPT
-  [ "$(check_chatgpt ${STRATEGY: -1})" = 'unlock' ] && CHATGPT_OUT=direct || CHATGPT_OUT=warp-ep
+  [ "$(check_chatgpt $(grep -oE '[46]' <<< "$STRATEGY"))" = 'unlock' ] && CHATGPT_OUT=direct || CHATGPT_OUT=warp-ep
 
   # 输入服务器 IP,默认为检测到的服务器 IP，如果全部为空，则提示并退出脚本
   [ -z "$SERVER_IP" ] && reading "\n $(text 57) " SERVER_IP
