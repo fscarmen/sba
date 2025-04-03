@@ -9,7 +9,7 @@ WS_PATH_DEFAULT='sba'
 WORK_DIR='/etc/sba'
 TEMP_DIR='/tmp/sba'
 TLS_SERVER=addons.mozilla.org
-CDN_DOMAIN=("skk.moe" "cfip.xxxxxxxx.tk" "cm.yutian.us.kg" "fan.yutian.us.kg" "xn--b6gac.eu.org" "dash.cloudflare.com" "visa.com")
+CDN_DOMAIN=("skk.moe" "ip.sb" "time.is" "cfip.xxxxxxxx.tk" "bestcf.top" "cdn.2020111.xyz" "xn--b6gac.eu.org")
 SUBSCRIBE_TEMPLATE="https://raw.githubusercontent.com/fscarmen/client_template/main"
 METRICS_PORT='3014'
 
@@ -208,9 +208,14 @@ check_chatgpt() {
 
 # 脚本当天及累计运行次数统计
 statistics_of_run-times() {
-  local COUNT=$(wget -qO- --tries=2 --timeout=2 "https://hit.forvps.gq/https://raw.githubusercontent.com/fscarmen/sba/main/sba.sh" 2>&1 | grep -m1 -oE "[0-9]+[ ]+/[ ]+[0-9]+") &&
-  TODAY=$(awk -F ' ' '{print $1}' <<< "$COUNT") &&
-  TOTAL=$(awk -F ' ' '{print $3}' <<< "$COUNT")
+  local UPDATE_OR_GET=$1
+  local SCRIPT=$2
+  if grep -q 'update' <<< "$UPDATE_OR_GET"; then
+    { wget -qO- --timeout=3 "https://stat-api.netlify.app/updateStats?script=${SCRIPT}" > $TEMP_DIR/statistics; }&
+  elif grep -q 'get' <<< "$UPDATE_OR_GET"; then
+    [ -s $TEMP_DIR/statistics ] && [[ $(cat $TEMP_DIR/statistics) =~ \"todayCount\":([0-9]+),\"totalCount\":([0-9]+) ]] && local TODAY="${BASH_REMATCH[1]}" && local TOTAL="${BASH_REMATCH[2]}" && rm -f $TEMP_DIR/statistics
+    hint "\n $(text 55) \n"
+  fi
 }
 
 # 选择中英语言
@@ -1230,7 +1235,7 @@ EOF
   cat $WORK_DIR/list
 
   # 显示脚本使用情况数据
-  hint "\n $(text 55) \n"
+  statistics_of_run-times get
 }
 
 # 更换 Argo 隧道类型
@@ -1415,7 +1420,7 @@ menu() {
 }
 
 check_cdn
-statistics_of_run-times
+statistics_of_run-times update sba.sh
 
 # 传参
 [[ "${*,,}" =~ '-e' ]] && L=E
