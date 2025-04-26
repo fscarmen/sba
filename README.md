@@ -14,6 +14,8 @@
 
 * * *
 ## 更新信息
+2025.04.26 v1.1.4 1. Added the ability to change CDNs online using [sb -d]; 2. Use OpenRC on Alpine to replace systemctl (Python3-compatible version); 3. Handle CentOS firewall port management; 4. Change GitHub proxy; 5. Optimize code; 1. 新增使用 [sb -d] 在线更换 CDN 功能; 2. 在 Alpine 系统中使用 OpenRC 取代兼容 Python3 的 systemctl 实现; 3. 处理 CentOS 防火墙端口管理; 4. 更换 GitHub 代理; 5. 优化代码
+
 2025.03.25 v1.1.3 Compatible with Sing-box 1.12.0-alpha.18+; 适配 Sing-box 1.12.0-alpha.18+
 
 2025.01.28 v1.1.2 1. Add server-side time synchronization configuration; 2. Replace some CDNs; 1. 添加服务端时间同步配置; 2. 替换某些 CDN
@@ -81,8 +83,10 @@ bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/sba/main/sba.sh)
   | -c         | Chinese 中文 |
   | -e         | English 英文 |
   | -a         | Argo on-off Argo 开关 |
-  | -s         | Sing-box on-off Xray 开关 |
-  | -f         | Variable file，refer to REPO file "config" 参数文件，可参数项目的文件 config | 
+  | -s         | Sing-box on-off Sing-box 开关 |
+  | -f         | Variable file，refer to REPO file "config" 参数文件，可参照项目的文件 config |
+  | -t         | Change the Argo Tunnel 更换 Argo 隧道 |
+  | -d         | Change the CDN 更换优选域名 |
   | -u         | Uninstall 卸载 |
   | -n         | Export Nodes list 显示节点信息 |
   | -b         | Upgrade kernel, turn on BBR, change Linux system 升级内核、安装BBR、DD脚本 |

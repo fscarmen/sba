@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 
 # 当前脚本版本号
-VERSION='1.1.3 (2025.03.18)'
+VERSION='1.1.4 (2025.04.26)'
 
 # 各变量默认值
-GH_PROXY='https://ghproxy.lvedong.eu.org/'
+GH_PROXY='https://ghfast.top/'
 WS_PATH_DEFAULT='sba'
 WORK_DIR='/etc/sba'
 TEMP_DIR='/tmp/sba'
@@ -21,8 +21,8 @@ mkdir -p $TEMP_DIR
 
 E[0]="Language:\n 1. English (default) \n 2. 简体中文"
 C[0]="${E[0]}"
-E[1]="Compatible with Sing-box 1.12.0-alpha.18+."
-C[1]="适配 Sing-box 1.12.0-alpha.18+"
+E[1]="1. Added the ability to change CDNs online using [sb -d]; 2. Use OpenRC on Alpine to replace systemctl (Python3-compatible version); 3. Handle CentOS firewall port management; 4. Change GitHub proxy; 5. Optimize code"
+C[1]="1. 新增使用 [sb -d] 在线更换 CDN 功能; 2. 在 Alpine 系统中使用 OpenRC 取代兼容 Python3 的 systemctl 实现; 3. 处理 CentOS 防火墙端口管理; 4. 更换 GitHub 代理; 5. 优化代码"
 E[2]="Project to create Argo tunnels and Sing-box specifically for VPS, detailed:[https://github.com/fscarmen/sba]\n Features:\n\t • Allows the creation of Argo tunnels via Token, Json and ad hoc methods. User can easily obtain the json at https://fscarmen.cloudflare.now.cc .\n\t • Extremely fast installation method, saving users time.\n\t • Support system: Ubuntu, Debian, CentOS, Alpine and Arch Linux 3.\n\t • Support architecture: AMD,ARM and s390x\n"
 C[2]="本项目专为 VPS 添加 Argo 隧道及 Sing-Box,详细说明: [https://github.com/fscarmen/sba]\n 脚本特点:\n\t • 允许通过 Token, Json 及 临时方式来创建 Argo 隧道,用户通过以下网站轻松获取 json: https://fscarmen.cloudflare.now.cc\n\t • 极速安装方式,大大节省用户时间\n\t • 智能判断操作系统: Ubuntu 、Debian 、CentOS 、Alpine 和 Arch Linux,请务必选择 LTS 系统\n\t • 支持硬件结构类型: AMD 和 ARM\n"
 E[3]="Input errors up to 5 times.The script is aborted."
@@ -161,6 +161,16 @@ E[69]=""
 C[69]=""
 E[70]="Set SElinux: enforcing --> disabled"
 C[70]="设置 SElinux: enforcing --> disabled"
+E[71]="Sing-box is not installed and cannot change the CDN."
+C[71]="Sing-box 未安装，不能更换 CDN"
+E[72]="Change CDN"
+C[72]="更换 CDN"
+E[73]="Current CDN is: \${CDN_NOW}"
+C[73]="当前 CDN 为: \${CDN_NOW}"
+E[74]="Please select or enter a new CDN (press Enter to keep the current one):"
+C[74]="请选择或输入新的 CDN (回车保持当前值):"
+E[75]="CDN has been changed from \${CDN_NOW} to \${CDN_NEW}"
+C[75]="CDN 已从 \${CDN_NOW} 更改为 \${CDN_NEW}"
 
 # 自定义字体彩色，read 函数
 warning() { echo -e "\033[31m\033[01m$*\033[0m"; }  # 红色
@@ -211,10 +221,10 @@ statistics_of_run-times() {
   local UPDATE_OR_GET=$1
   local SCRIPT=$2
   if grep -q 'update' <<< "$UPDATE_OR_GET"; then
-    { wget -qO- --timeout=3 "https://stat-api.netlify.app/updateStats?script=${SCRIPT}" > $TEMP_DIR/statistics; }&
+    { wget -qO- --timeout=3 "https://stat-api.netlify.app/updateStats?script=${SCRIPT}" > $TEMP_DIR/statistics 2>/dev/null || true; }&
   elif grep -q 'get' <<< "$UPDATE_OR_GET"; then
     [ -s $TEMP_DIR/statistics ] && [[ $(cat $TEMP_DIR/statistics) =~ \"todayCount\":([0-9]+),\"totalCount\":([0-9]+) ]] && local TODAY="${BASH_REMATCH[1]}" && local TOTAL="${BASH_REMATCH[2]}" && rm -f $TEMP_DIR/statistics
-    hint "\n $(text 55) \n"
+    hint "\n*******************************************\n\n $(text 55) \n"
   fi
 }
 
@@ -224,18 +234,19 @@ select_language() {
     case $(cat $WORK_DIR/language 2>&1) in
       E ) L=E ;;
       C ) L=C ;;
-      * ) [ -z "$L" ] && L=E && hint "\n $(text 0) \n" && reading " $(text 24) " LANGUAGE
+      * ) [ -z "$L" ] && L=E && ! grep -q 'noninteractive_install' <<< "$NONINTERACTIVE_INSTALL" && hint "\n $(text 0) \n" && reading " $(text 24) " LANGUAGE
       [ "$LANGUAGE" = 2 ] && L=C ;;
     esac
   fi
 }
 
+# 只允许 root 用户安装脚本
 check_root() {
   [ "$(id -u)" != 0 ] && error "\n $(text 47) \n"
 }
 
+# 检测处理器架构
 check_arch() {
-  # 判断处理器架构
   case $(uname -m) in
     aarch64|arm64 )
       ARGO_ARCH=arm64; SING_BOX_ARCH=arm64; JQ_ARCH=arm64; QRENCODE_ARCH=arm64
@@ -251,15 +262,21 @@ check_arch() {
   esac
 }
 
-# 查安装及运行状态，下标0: argo，下标1: sing-box，下标2：docker；状态码: 26 未安装， 27 已安装未运行， 28 运行中
+# 查安装及运行状态，下标0: argo，下标1: sing-box；状态码: 26 未安装， 27 已安装未运行， 28 运行中
 check_install() {
-  STATUS[0]=$(text 26) && [ -s /etc/systemd/system/argo.service ] && STATUS[0]=$(text 27) && [ "$(systemctl is-active argo)" = 'active' ] && STATUS[0]=$(text 28)
+  [ -s $WORK_DIR/nginx.conf ] && IS_NGINX=is_nginx || IS_NGINX=no_nginx
+  # 检查 argo 服务
+  STATUS[0]=$(text 26) && [ -s ${ARGO_DAEMON_FILE} ] && STATUS[0]=$(text 27) && cmd_systemctl status argo >/dev/null 2>&1 && STATUS[0]=$(text 28)
+
+  # 检查 sing-box 服务
   STATUS[1]=$(text 26)
-  # sing-box systemd 文件存在的话，检测一下是否本脚本安装的，如果不是则提示并提出
-  if [ -s /etc/systemd/system/sing-box.service ]; then
-    ! grep -q "$WORK_DIR" /etc/systemd/system/sing-box.service && error " $(text 53)\n $(grep 'ExecStart=' /etc/systemd/system/sing-box.service) "
+  # sing-box systemd 文件存在的话，检测一下是否本脚本安装的，如果不是则提示并退出
+  if [ -s ${SINGBOX_DAEMON_FILE} ]; then
+    ! grep -q "$WORK_DIR" ${SINGBOX_DAEMON_FILE} && error " $(text 53)\n $(grep 'ExecStart=' ${SINGBOX_DAEMON_FILE}) "
     STATUS[1]=$(text 27) && [ "$(systemctl is-active sing-box)" = 'active' ] && STATUS[1]=$(text 28)
   fi
+
+  # 下载所需文件
   [[ ${STATUS[0]} = "$(text 26)" ]] && [ ! -s $WORK_DIR/cloudflared ] &&
   {
     wget --no-check-certificate -qO $TEMP_DIR/cloudflared ${GH_PROXY}https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-$ARGO_ARCH >/dev/null 2>&1
@@ -270,7 +287,7 @@ check_install() {
     local VERSION_LATEST=$(wget --no-check-certificate -qO- ${GH_PROXY}https://api.github.com/repos/SagerNet/sing-box/releases | awk -F '["v-]' '/tag_name/{print $5}' | sort -Vr | sed -n '1p')
     local SING_BOX_LATEST=$(wget --no-check-certificate -qO- ${GH_PROXY}https://api.github.com/repos/SagerNet/sing-box/releases | awk -F '["v]' -v var="tag_name.*$VERSION" '$0 ~ var {print $5; exit}')
     SING_BOX_LATEST=${SING_BOX_LATEST:-'1.12.0-alpha.23'}
-    wget --no-check-certificate -c $TEMP_DIR/sing-box.tar.gz ${GH_PROXY}https://github.com/SagerNet/sing-box/releases/download/v$SING_BOX_LATEST/sing-box-$SING_BOX_LATEST-linux-$SING_BOX_ARCH.tar.gz -qO- | tar xz -C $TEMP_DIR sing-box-$SING_BOX_LATEST-linux-$SING_BOX_ARCH/sing-box
+    wget --no-check-certificate -c -qO- ${GH_PROXY}https://github.com/SagerNet/sing-box/releases/download/v$SING_BOX_LATEST/sing-box-$SING_BOX_LATEST-linux-$SING_BOX_ARCH.tar.gz -qO- | tar xz -C $TEMP_DIR sing-box-$SING_BOX_LATEST-linux-$SING_BOX_ARCH/sing-box
     mv $TEMP_DIR/sing-box-$SING_BOX_LATEST-linux-$SING_BOX_ARCH/sing-box $TEMP_DIR >/dev/null 2>&1
     wget --no-check-certificate --continue -qO $TEMP_DIR/jq ${GH_PROXY}https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux-$JQ_ARCH >/dev/null 2>&1 && chmod +x $TEMP_DIR/jq >/dev/null 2>&1
     wget --no-check-certificate --continue -qO $TEMP_DIR/qrencode ${GH_PROXY}https://github.com/fscarmen/client_template/raw/main/qrencode-go/qrencode-go-linux-$QRENCODE_ARCH >/dev/null 2>&1 && chmod +x $TEMP_DIR/qrencode >/dev/null 2>&1
@@ -279,35 +296,50 @@ check_install() {
 
 # 为了适配 alpine，定义 cmd_systemctl 的函数
 cmd_systemctl() {
+  nginx_run() {
+    $(type -p nginx) -c $WORK_DIR/nginx.conf
+  }
+
+  nginx_stop() {
+    local NGINX_PID=$(ps -ef | awk -v work_dir="$WORK_DIR" '$0 ~ "nginx -c " work_dir "/nginx.conf" {print $2; exit}')
+    ss -nltp | sed -n "/pid=$NGINX_PID,/ s/,/ /gp" | grep -oP 'pid=\K\S+' | sort -u | xargs kill -9 >/dev/null 2>&1
+  }
+
+  [ -s $WORK_DIR/nginx.conf ] && local IS_NGINX=is_nginx || local IS_NGINX=no_nginx
   local ENABLE_DISABLE=$1
   local APP=$2
   if [ "$ENABLE_DISABLE" = 'enable' ]; then
     if [ "$SYSTEM" = 'Alpine' ]; then
-      systemctl start $APP
-      cat > /etc/local.d/$APP.start << EOF
-#!/usr/bin/env bash
-
-systemctl start $APP
-EOF
-      chmod +x /etc/local.d/$APP.start
-      rc-update add local >/dev/null 2>&1
+      # 使用 openrc 启动服务
+      rc-service $APP start
+      # 添加到开机启动
+      rc-update add $APP default
     elif [ "$IS_CENTOS" = 'CentOS7' ]; then
+      systemctl daemon-reload
       systemctl enable --now $APP
-      [ "$APP" = 'argo' ] && $(type -p nginx) -c $WORK_DIR/nginx.conf
+      [[ "$APP" = 'sing-box' && "$IS_NGINX" = 'is_nginx' ]] && [ -s $WORK_DIR/nginx.conf ] && { nginx_run; firewall_configuration open; }
     else
+      systemctl daemon-reload
       systemctl enable --now $APP
     fi
 
   elif [ "$ENABLE_DISABLE" = 'disable' ]; then
     if [ "$SYSTEM" = 'Alpine' ]; then
-      systemctl stop $APP
-      [ "$APP" = 'argo' ] && ss -nltp | grep "$(cat /var/run/nginx.pid)" | tr ',' '\n' | awk -F '=' '/pid/{print $2}' | xargs kill -15 >/dev/null 2>&1
-      rm -f /etc/local.d/$APP.start
+      # 使用 openrc 停止服务
+      rc-service $APP stop
+      # 从开机启动中移除
+      rc-update del $APP default
     elif [ "$IS_CENTOS" = 'CentOS7' ]; then
       systemctl disable --now $APP
-      [ "$APP" = 'argo' ] && ss -nltp | grep "$(cat /var/run/nginx.pid)" | tr ',' '\n' | awk -F '=' '/pid/{print $2}' | xargs kill -15 >/dev/null 2>&1
+      [[ "$APP" = 'sing-box' && "$IS_NGINX" = 'is_nginx' ]] && [ -s $WORK_DIR/nginx.conf ] && { nginx_stop; firewall_configuration close; }
     else
       systemctl disable --now $APP
+    fi
+  elif [ "$ENABLE_DISABLE" = 'status' ]; then
+    if [ "$SYSTEM" = 'Alpine' ]; then
+      rc-service $APP status
+    else
+      systemctl is-active $APP
     fi
   fi
 }
@@ -352,7 +384,12 @@ check_system_info() {
   [[ "$(echo "$SYS" | sed "s/[^0-9.]//g" | cut -d. -f1)" -lt "${MAJOR[int]}" ]] && error " $(text 6) "
 
   # 针对部分系统作特殊处理
-  [ "$SYSTEM" = 'CentOS' ] && IS_CENTOS="CentOS$(echo "$SYS" | sed "s/[^0-9.]//g" | cut -d. -f1)"
+  ARGO_DAEMON_FILE='/etc/systemd/system/argo.service'; SINGBOX_DAEMON_FILE='/etc/systemd/system/sing-box.service'
+  if [ "$SYSTEM" = 'CentOS' ]; then
+    IS_CENTOS="CentOS$(echo "$SYS" | sed "s/[^0-9.]//g" | cut -d. -f1)"
+  elif [ "$SYSTEM" = 'Alpine' ]; then
+    ARGO_DAEMON_FILE='/etc/init.d/argo'; SINGBOX_DAEMON_FILE='/etc/init.d/sing-box'
+  fi
 }
 
 # 检查系统是否已经安装 tcp-brutal
@@ -387,12 +424,18 @@ check_system_ip() {
 # 定义 Argo 变量，遇到使用 warp 的话，要求输入正确的 IP
 argo_variable() {
   if grep -qi 'cloudflare' <<< "$ASNORG4$ASNORG6"; then
-    local a=6
-    until [ -n "$SERVER_IP" ]; do
-      ((a--)) || true
-      [ "$a" = 0 ] && error "\n $(text 3) \n"
-      reading "\n $(text 54) " SERVER_IP
-    done
+    if grep -qi 'cloudflare' <<< "$ASNORG6" && [ -n "$WAN4" ] && ! grep -qi 'cloudflare' <<< "$ASNORG4"; then
+      SERVER_IP_DEFAULT=$WAN4
+    elif grep -qi 'cloudflare' <<< "$ASNORG4" && [ -n "$WAN6" ] && ! grep -qi 'cloudflare' <<< "$ASNORG6"; then
+      SERVER_IP_DEFAULT=$WAN6
+    else
+      local a=6
+      until [ -n "$SERVER_IP" ]; do
+        ((a--)) || true
+        [ "$a" = 0 ] && error "\n $(text 3) \n"
+        reading "\n $(text 54) " SERVER_IP
+      done
+    fi
     if [[ "$SERVER_IP" =~ : ]]; then
       STRATEGY=prefer_ipv6
     else
@@ -410,13 +453,13 @@ argo_variable() {
   [ "$(check_chatgpt $(grep -oE '[46]' <<< "$STRATEGY"))" = 'unlock' ] && CHATGPT_OUT=direct || CHATGPT_OUT=warp-ep
 
   # 输入服务器 IP,默认为检测到的服务器 IP，如果全部为空，则提示并退出脚本
-  [ -z "$SERVER_IP" ] && reading "\n $(text 57) " SERVER_IP
+  ! grep -q 'noninteractive_install' <<< "$NONINTERACTIVE_INSTALL" && [ -z "$SERVER_IP" ] && reading "\n $(text 57) " SERVER_IP
   SERVER_IP=${SERVER_IP:-"$SERVER_IP_DEFAULT"}
   [ -z "$SERVER_IP" ] && error " $(text 65) "
 
   # 处理可能输入的错误，去掉开头和结尾的空格，去掉最后的 :
-  [ -z "$ARGO_DOMAIN" ] && reading "\n $(text 10) " ARGO_DOMAIN
-  ARGO_DOMAIN=$(sed 's/[ ]*//g; s/:[ ]*//' <<< "$ARGO_DOMAIN")
+  [[ "$NONINTERACTIVE_INSTALL" != 'noninteractive_install' && -z "$ARGO_DOMAIN" ]] && reading "\n $(text 10) " ARGO_DOMAIN
+  grep -q '.' <<< "$ARGO_DOMAIN" && ARGO_DOMAIN=$(sed 's/[ ]*//g; s/:[ ]*//' <<< "$ARGO_DOMAIN")
 
   if [[ -n "$ARGO_DOMAIN" && -z "$ARGO_AUTH" ]]; then
     local a=5
@@ -443,19 +486,21 @@ sing_box_variable() {
     ((a--)) || true
     [ "$a" = 0 ] && error "\n $(text 3) \n"
     REALITY_PORT_DEFAULT=$(shuf -i 100-65535 -n 1)
-    reading "\n $(text 56) " REALITY_PORT
+    ! grep -q 'noninteractive_install' <<< "$NONINTERACTIVE_INSTALL" && reading "\n $(text 56) " REALITY_PORT
     REALITY_PORT=${REALITY_PORT:-"$REALITY_PORT_DEFAULT"}
     ss -nltup | grep ":$REALITY_PORT" >/dev/null 2>&1 && warning "\n $(text 67) \n" && unset REALITY_PORT
   done
 
   # 提供网上热心网友的anycast域名
   if [ -z "$SERVER" ]; then
-    echo ""
-    for c in "${!CDN_DOMAIN[@]}"; do
-      hint " $[c+1]. ${CDN_DOMAIN[c]} "
-    done
+    if ! grep -q 'noninteractive_install' <<< "$NONINTERACTIVE_INSTALL"; then
+      echo ""
+      for c in "${!CDN_DOMAIN[@]}"; do
+        hint " $[c+1]. ${CDN_DOMAIN[c]} "
+      done
 
-    reading "\n $(text 42) " CUSTOM_CDN
+      reading "\n $(text 42) " CUSTOM_CDN
+    fi
     case "$CUSTOM_CDN" in
       [1-${#CDN_DOMAIN[@]}] )
         SERVER="${CDN_DOMAIN[$((CUSTOM_CDN-1))]}"
@@ -473,12 +518,12 @@ sing_box_variable() {
     (( a-- )) || true
     [ "$a" = 0 ] && error "\n $(text 3) \n"
     UUID_DEFAULT=$(cat /proc/sys/kernel/random/uuid)
-    reading "\n $(text 12) " UUID
+    ! grep -q 'noninteractive_install' <<< "$NONINTERACTIVE_INSTALL" && reading "\n $(text 12) " UUID
     UUID=${UUID:-"$UUID_DEFAULT"}
     [[ ! "${UUID,,}" =~ ^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$ && "$a" != 1 ]] && warning "\n $(text 4) "
   done
 
-  [ -z "$WS_PATH" ] && reading "\n $(text 13) " WS_PATH
+  ! grep -q 'noninteractive_install' <<< "$NONINTERACTIVE_INSTALL" && [ -z "$WS_PATH" ] && reading "\n $(text 13) " WS_PATH
   local a=5
   until [[ -z "$WS_PATH" || "$WS_PATH" =~ ^[A-Z0-9a-z]+$ ]]; do
     (( a-- )) || true
@@ -495,13 +540,13 @@ sing_box_variable() {
     else
       NODE_NAME_DEFAULT="sba"
     fi
-    reading "\n $(text 49) " NODE_NAME
+    ! grep -q 'noninteractive_install' <<< "$NONINTERACTIVE_INSTALL" && reading "\n $(text 49) " NODE_NAME
     NODE_NAME="${NODE_NAME:-"$NODE_NAME_DEFAULT"}"
   fi
 }
 
 check_dependencies() {
-  # 如果是 Alpine，先升级 wget ，安装 systemctl-py 版
+  # 如果是 Alpine，先升级 wget
   if [ "$SYSTEM" = 'Alpine' ]; then
     CHECK_WGET=$(wget 2>&1 | head -n 1)
     grep -qi 'busybox' <<< "$CHECK_WGET" && ${PACKAGE_INSTALL[int]} wget >/dev/null 2>&1
@@ -517,8 +562,6 @@ check_dependencies() {
       ${PACKAGE_INSTALL[int]} ${DEPS_ALPINE[@]} >/dev/null 2>&1
       [[ -z "$VIRT" && "${DEPS_ALPINE[@]}" =~ 'virt-what' ]] && VIRT=$(virt-what | tr '\n' ' ')
     fi
-
-    [ ! -x "$(type -p systemctl)" ] && wget --no-check-certificate --quiet ${GH_PROXY}https://raw.githubusercontent.com/gdraheim/docker-systemctl-replacement/master/files/docker/systemctl3.py -O /bin/systemctl && chmod a+x /bin/systemctl
   fi
 
   # 检测 Linux 系统的依赖，升级库并重新安装依赖
@@ -541,13 +584,21 @@ check_dependencies() {
   [[ "${DEPS[@]}" =~ 'nginx' ]] && cmd_systemctl disable nginx >/dev/null 2>&1
 }
 
-
 # 处理防火墙规则
-check_firewall_configuration() {
+firewall_configuration() {
+  local LISTEN_PORT=$(awk -F [:,] '/"listen_port"/{print $2; exit}' $WORK_DIR/sing-box-conf/inbound.json)
+  local NGINX_PORT=$(sed -n 's/.*listen 127.0.0.1:\([0-9]\+\).*/\1/gp' $WORK_DIR/nginx.conf)
+  if grep -q "open" <<< "$1"; then
+    firewall-cmd --zone=public --add-port=${LISTEN_PORT}/tcp --add-port=${NGINX_PORT}/tcp --permanent >/dev/null 2>&1
+  elif grep -q "close" <<< "$1"; then
+    firewall-cmd --zone=public --remove-port=${LISTEN_PORT}/tcp --remove-port=${NGINX_PORT}/tcp --permanent >/dev/null 2>&1
+  fi
+  firewall-cmd --reload >/dev/null 2>&1
+
   if [[ -s /etc/selinux/config && -x "$(type -p getenforce)" && $(getenforce) = 'Enforcing' ]]; then
-    hint "\n $(text 70) \n"
+    hint "\n $(text 70) "
     setenforce 0
-    sed -i 's/^SELINUX=.*/# &/; /SELINUX=/a\SELINUX=disabled' /etc/selinux/config
+    grep -qs '^SELINUX=disabled$' /etc/selinux/config || sed -i 's/^SELINUX=[epd].*/# &/; /SELINUX=[epd]/a\SELINUX=disabled' /etc/selinux/config
   fi
 }
 
@@ -561,8 +612,7 @@ json_nginx() {
   fi
 
   [[ "$SERVER_IP" =~ : ]] && REVERSE_IP="[$SERVER_IP]" || REVERSE_IP="$SERVER_IP"
-  cat > $WORK_DIR/nginx.conf << EOF
-user  root;
+  local NGINX_CONF="user  root;
 worker_processes  auto;
 
 error_log  /dev/null;
@@ -586,9 +636,9 @@ http {
     include       /etc/nginx/mime.types;
     default_type  application/octet-stream;
 
-    log_format  main  '\$remote_addr - \$remote_user [\$time_local] "\$request" '
-                      '\$status \$body_bytes_sent "\$http_referer" '
-                      '"\$http_user_agent" "\$http_x_forwarded_for"';
+    log_format  main  '\$remote_addr - \$remote_user [\$time_local] \"\$request\" '
+                      '\$status \$body_bytes_sent \"\$http_referer\" '
+                      '\"\$http_user_agent\" \"\$http_x_forwarded_for\"';
 
     access_log  /dev/null;
 
@@ -601,9 +651,24 @@ http {
 
     #include /etc/nginx/conf.d/*.conf;
 
-  server {
-    listen 127.0.0.1:3010 ssl http2; # sing-box backend
-    # http2 on;
+  server {"
+
+  # 检查 Nginx 版本，决定使用哪种 HTTP/2 配置语法
+  local NGINX_VERSION=$(nginx -v 2>&1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')
+  local NGINX_MAJOR=$(awk -F. '{print $1}' <<< "$NGINX_VERSION")
+  local NGINX_MINOR=$(awk -F. '{print $2}' <<< "$NGINX_VERSION")
+
+  # Nginx 1.25.0 及以上版本支持 http2 on; 指令
+  if [[ "$NGINX_MAJOR" -gt 1 || ("$NGINX_MAJOR" -eq 1 && "$NGINX_MINOR" -ge 25) ]]; then
+    NGINX_CONF+="
+    listen 127.0.0.1:3010 ssl; # sing-box backend
+    http2 on;"
+  else
+    # 早期版本使用 listen ... ssl http2; 语法
+    NGINX_CONF+="
+    listen 127.0.0.1:3010 ssl http2; # sing-box backend"
+  fi
+  NGINX_CONF+="
     server_name $TLS_SERVER;
 
     ssl_certificate            $WORK_DIR/cert/cert.pem;
@@ -615,13 +680,13 @@ http {
 
     # 反代 sing-box vless websocket
     location /$WS_PATH-vl {
-      if (\$http_upgrade != "websocket") {
+      if (\$http_upgrade != \"websocket\") {
          return 404;
       }
       proxy_pass                          http://127.0.0.1:3011;
       proxy_http_version                  1.1;
       proxy_set_header Upgrade            \$http_upgrade;
-      proxy_set_header Connection         "upgrade";
+      proxy_set_header Connection         \"upgrade\";
       proxy_set_header X-Real-IP          \$remote_addr;
       proxy_set_header X-Forwarded-For    \$proxy_add_x_forwarded_for;
       proxy_set_header Host               \$host;
@@ -630,13 +695,13 @@ http {
 
     # 反代 sing-box websocket
     location /$WS_PATH-vm {
-      if (\$http_upgrade != "websocket") {
+      if (\$http_upgrade != \"websocket\") {
          return 404;
       }
       proxy_pass                          http://127.0.0.1:3012;
       proxy_http_version                  1.1;
       proxy_set_header Upgrade            \$http_upgrade;
-      proxy_set_header Connection         "upgrade";
+      proxy_set_header Connection         \"upgrade\";
       proxy_set_header X-Real-IP          \$remote_addr;
       proxy_set_header X-Forwarded-For    \$proxy_add_x_forwarded_for;
       proxy_set_header Host               \$host;
@@ -644,13 +709,13 @@ http {
     }
 
     location /$WS_PATH-tr {
-      if (\$http_upgrade != "websocket") {
+      if (\$http_upgrade != \"websocket\") {
          return 404;
       }
       proxy_pass                          http://127.0.0.1:3013;
       proxy_http_version                  1.1;
       proxy_set_header Upgrade            \$http_upgrade;
-      proxy_set_header Connection         "upgrade";
+      proxy_set_header Connection         \"upgrade\";
       proxy_set_header X-Real-IP          \$remote_addr;
       proxy_set_header X-Forwarded-For    \$proxy_add_x_forwarded_for;
       proxy_set_header Host               \$host;
@@ -670,8 +735,8 @@ http {
       alias ${WORK_DIR}/subscribe/\$1;
     }
   }
-}
-EOF
+}"
+  echo "$NGINX_CONF" > $WORK_DIR/nginx.conf
 }
 
 # Json 生成两个配置文件
@@ -694,9 +759,7 @@ EOF
 install_sba() {
   argo_variable
   sing_box_variable
-  [ "$SYSTEM" = 'CentOS' ] && check_firewall_configuration
   wait
-  [ ! -d /etc/systemd/system ] && mkdir -p /etc/systemd/system
   mkdir -p $WORK_DIR/sing-box-conf $WORK_DIR/subscribe $WORK_DIR/logs $WORK_DIR/cert && echo "$L" > $WORK_DIR/language
   [ -s "$VARIABLE_FILE" ] && cp $VARIABLE_FILE $WORK_DIR/
 
@@ -718,7 +781,51 @@ install_sba() {
   openssl ecparam -genkey -name prime256v1 -out $WORK_DIR/cert/private.key && openssl req -new -x509 -days 36500 -key $WORK_DIR/cert/private.key -out $WORK_DIR/cert/cert.pem -subj "/CN=$(awk -F . '{print $(NF-1)"."$NF}' <<< "$TLS_SERVER")"
 
   # Argo 生成守护进程文件
-  local ARGO_SERVER="[Unit]
+  if [ "$SYSTEM" = 'Alpine' ]; then
+    # 分离命令和参数
+    local COMMAND=${ARGO_RUNS%% --*}  # 提取命令部分（包括 cloudflared tunnel）
+    local ARGS=${ARGO_RUNS#$COMMAND }  # 提取参数部分
+
+    cat > ${ARGO_DAEMON_FILE} << EOF
+#!/sbin/openrc-run
+
+name="argo"
+description="Cloudflare Tunnel"
+command="${COMMAND}"
+command_args="${ARGS}"
+pidfile="/var/run/\${RC_SVCNAME}.pid"
+command_background="yes"
+output_log="$WORK_DIR/argo.log"
+error_log="$WORK_DIR/argo.log"
+
+depend() {
+    need net
+    after net
+}
+
+start_pre() {
+    # 确保日志目录存在
+    mkdir -p $WORK_DIR
+
+    # 如果需要启动 nginx
+    if [ -s $WORK_DIR/nginx.conf ]; then
+        $(type -p nginx) -c $WORK_DIR/nginx.conf
+    fi
+}
+
+stop_post() {
+    # 停止服务时检查并关闭相关的 nginx 进程
+    if [ -s $WORK_DIR/nginx.conf ]; then
+        # 查找使用我们配置文件的 nginx 进程并停止它
+        local NGINX_PIDS=\$(ps -ef | awk -v work_dir="$WORK_DIR" '{if (\$0 ~ "nginx.*" work_dir "/nginx.conf") print \$1}')
+        [ -n "\$NGINX_PIDS" ] && echo " * Stopping nginx processes: \$NGINX_PIDS" && kill -15 \$NGINX_PIDS 2>/dev/null
+    fi
+}
+EOF
+    chmod +x ${ARGO_DAEMON_FILE}
+  else
+    # 创建 systemd 服务
+    local ARGO_SERVER="[Unit]
 Description=Cloudflare Tunnel
 After=network.target
 
@@ -726,9 +833,9 @@ After=network.target
 Type=simple
 NoNewPrivileges=yes
 TimeoutStartSec=0"
-  [ "$IS_CENTOS" != 'CentOS7' ] && ARGO_SERVER+="
+    [ "$IS_CENTOS" != 'CentOS7' ] && ARGO_SERVER+="
 ExecStartPre=$(type -p nginx) -c $WORK_DIR/nginx.conf"
-  ARGO_SERVER+="
+    ARGO_SERVER+="
 ExecStart=$ARGO_RUNS
 Restart=on-failure
 RestartSec=5s
@@ -736,9 +843,52 @@ RestartSec=5s
 [Install]
 WantedBy=multi-user.target"
 
-  echo "$ARGO_SERVER" > /etc/systemd/system/argo.service
+    echo "$ARGO_SERVER" > ${ARGO_DAEMON_FILE}
+  fi
 
-  # 生成配置文件及守护进程文件
+  # Sing-box 生成守护进程文件
+  if [ "$SYSTEM" = 'Alpine' ]; then
+    cat > ${SINGBOX_DAEMON_FILE} << EOF
+#!/sbin/openrc-run
+
+name="Sing-Box"
+description="Sing-Box Service"
+command="$WORK_DIR/sing-box"
+command_args="run -C $WORK_DIR/sing-box-conf"
+command_background=true
+pidfile="/run/sing-box.pid"
+output_log="/var/log/sing-box.log"
+error_log="/var/log/sing-box.err"
+
+depend() {
+    need net
+    after firewall
+}
+EOF
+    chmod +x ${SINGBOX_DAEMON_FILE}
+  else
+    cat > ${SINGBOX_DAEMON_FILE} << EOF
+[Unit]
+Description=sing-box service
+Documentation=https://sing-box.sagernet.org
+After=network.target nss-lookup.target
+
+[Service]
+User=root
+WorkingDirectory=$WORK_DIR
+CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_BIND_SERVICE CAP_NET_RAW CAP_SYS_PTRACE CAP_DAC_READ_SEARCH
+AmbientCapabilities=CAP_NET_ADMIN CAP_NET_BIND_SERVICE CAP_NET_RAW CAP_SYS_PTRACE CAP_DAC_READ_SEARCH
+ExecStart=$WORK_DIR/sing-box run -C $WORK_DIR/sing-box-conf
+ExecReload=/bin/kill -HUP \$MAINPID
+Restart=on-failure
+RestartSec=10
+LimitNOFILE=infinity
+
+[Install]
+WantedBy=multi-user.target
+EOF
+  fi
+
   # 等待 sing-box 二进制文件下载成功并搬到 $WORK_DIR，40秒超时报错退出
   local i=1
   [ ! -s $WORK_DIR/sing-box ] && wait && while [ "$i" -le 20 ]; do [ -s $TEMP_DIR/sing-box ] && mv $TEMP_DIR/sing-box $WORK_DIR && break; ((i++)); sleep 2; done
@@ -976,29 +1126,11 @@ EOF
 }
 EOF
 
-  cat > /etc/systemd/system/sing-box.service << EOF
-[Unit]
-Description=sing-box service
-Documentation=https://sing-box.sagernet.org
-After=network.target nss-lookup.target
-
-[Service]
-User=root
-WorkingDirectory=$WORK_DIR
-CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_BIND_SERVICE CAP_NET_RAW CAP_SYS_PTRACE CAP_DAC_READ_SEARCH
-AmbientCapabilities=CAP_NET_ADMIN CAP_NET_BIND_SERVICE CAP_NET_RAW CAP_SYS_PTRACE CAP_DAC_READ_SEARCH
-ExecStart=$WORK_DIR/sing-box run -C $WORK_DIR/sing-box-conf
-ExecReload=/bin/kill -HUP \$MAINPID
-Restart=on-failure
-RestartSec=10
-LimitNOFILE=infinity
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
   # 生成 Nginx 配置文件
   json_nginx
+
+  # CentOS 打开防火墙端口
+  [ "$SYSTEM" = 'CentOS' ] && firewall_configuration open
 
   # 再次检测状态，运行 Argo 和 Sing-box
   check_install
@@ -1013,7 +1145,7 @@ EOF
       info "\n Argo $(text 28) $(text 37) \n"
   esac
 
-  case "${STATUS[0]}" in
+  case "${STATUS[1]}" in
     "$(text 26)" )
       warning "\n Sing-box $(text 28) $(text 38) \n"
       ;;
@@ -1034,6 +1166,13 @@ bash <(wget --no-check-certificate -qO- https://raw.githubusercontent.com/fscarm
 EOF
   chmod +x $WORK_DIR/sb.sh
   ln -sf $WORK_DIR/sb.sh /usr/bin/sb
+
+  # 如果 /usr/bin 不在 PATH 中，添加到 ~/.bashrc
+  if [[ ! ":$PATH:" == *":/usr/bin:"* ]]; then
+    echo 'export PATH=$PATH:/usr/bin' >> ~/.bashrc
+    source ~/.bashrc
+  fi
+
   [ -s /usr/bin/sb ] && hint "\n $(text 62) "
 }
 
@@ -1062,11 +1201,12 @@ export_list() {
   fi
 
   # 如果是临时隧道，即实时获取其域名
-  if grep -q 'metrics.*url' /etc/systemd/system/argo.service; then
+  if grep -qs 'metrics.*url' ${ARGO_DAEMON_FILE}; then
     local a=5
     until [[ -n "$ARGO_DOMAIN" || "$a" = 0 ]]; do
       sleep 8
-      ARGO_DOMAIN=$(wget -qO- http://localhost:$(sed -n 's/.*--metrics.*:\([0-9]\+\) .*/\1/gp' /etc/systemd/system/argo.service)/quicktunnel | awk -F '"' '{print $4}')
+      local REALTIME_METRICS_PORT=$(sed -n 's/.*--metrics.*:\([0-9]\+\) .*/\1/gp' ${ARGO_DAEMON_FILE})
+      ARGO_DOMAIN=$(wget -qO- http://localhost:${REALTIME_METRICS_PORT}/quicktunnel | awk -F '"' '{print $4}')
       ((a--)) || true
     done
   else
@@ -1093,7 +1233,7 @@ export_list() {
   fi
 
   # 若为临时隧道，处理查询方法
-  grep -q 'metrics.*url' /etc/systemd/system/argo.service && QUICK_TUNNEL_URL=$(text 60)
+  grep -qs 'metrics.*url' ${ARGO_DAEMON_FILE} && QUICK_TUNNEL_URL=$(text 60)
 
   # 生成 vmess 文件
   VMESS="{ \"v\": \"2\", \"ps\": \"${NODE_NAME}-Vm\", \"add\": \"${SERVER}\", \"port\": \"443\", \"id\": \"${UUID}\", \"aid\": \"0\", \"scy\": \"none\", \"net\": \"ws\", \"type\": \"none\", \"host\": \"${ARGO_DOMAIN}\", \"path\": \"/${WS_PATH}-vm?ed=2048\", \"tls\": \"tls\", \"sni\": \"${ARGO_DOMAIN}\", \"alpn\": \"\" }"
@@ -1241,66 +1381,91 @@ EOF
 # 更换 Argo 隧道类型
 change_argo() {
   check_install
-  [[ ${STATUS[0]} = "$(text 26)" ]] && error " $(text 39) "
-  SERVER_IP=$(awk -F '"' '/"SERVER_IP"/{print $4}' $WORK_DIR/sing-box-conf/*inbound*.json)
+  [[ ${STATUS[0]} = "$(text 26)" ]] && error "\n $(text 39) \n"
 
-  case $(grep "ExecStart=" /etc/systemd/system/argo.service) in
-    *--config* )
-      ARGO_TYPE='Json'; ARGO_DOMAIN="$(grep -m1 '^vless' $WORK_DIR/list | sed "s@.*host=\(.*\)&.*@\1@g")" ;;
-    *--token* )
-      ARGO_TYPE='Token'; ARGO_DOMAIN="$(grep -m1 '^vless' $WORK_DIR/list | sed "s@.*host=\(.*\)&.*@\1@g")" ;;
-    * )
-      ARGO_TYPE='Try'; ARGO_DOMAIN=$(wget -qO- http://localhost:$(sed -n 's/.*--metrics.*:\([0-9]\+\) .*/\1/gp' /etc/systemd/system/argo.service)/quicktunnel | awk -F '"' '{print $4}') ;;
-  esac
+  # 停止 argo 服务
+  cmd_systemctl disable argo
+
+  # 获取当前隧道信息
+  ARGO_TYPE=$(grep -m1 '"type":' $WORK_DIR/tunnel.json | cut -d\" -f4)
+  ARGO_DOMAIN=$(grep -m1 '"hostname":' $WORK_DIR/tunnel.json | cut -d\" -f4)
 
   hint "\n $(text 40) \n"
   unset ARGO_DOMAIN
-  hint " $(text 41) \n" && reading " $(text 24) " CHANGE_TO
-    case "$CHANGE_TO" in
-      1 )
-        cmd_systemctl disable argo
+
+  # 选择隧道类型
+  hint "\n $(text 41) \n"
+  reading " $(text 24) " ARGO_CHOOSE
+  case "$ARGO_CHOOSE" in
+    1 ) ARGO_TYPE='Try'
+        # 使用临时隧道
         [ -s $WORK_DIR/tunnel.json ] && rm -f $WORK_DIR/tunnel.{json,yml}
-        sed -i "s@ExecStart=.*@ExecStart=$WORK_DIR/cloudflared tunnel --edge-ip-version auto --no-autoupdate --no-tls-verify --metrics 0.0.0.0:$METRICS_PORT --url https://localhost:3010@g" /etc/systemd/system/argo.service
+        sed -i "s@ExecStart=.*@ExecStart=$WORK_DIR/cloudflared tunnel --edge-ip-version auto --no-autoupdate --no-tls-verify --metrics 0.0.0.0:$METRICS_PORT --url https://localhost:3010@g" ${ARGO_DAEMON_FILE}
         ;;
-      2 )
-        SERVER_IP=$(awk -F '"' '/"SERVER_IP"/{print $4}' $WORK_DIR/sing-box-conf/*inbound*.json)
+    2 ) ARGO_TYPE='Token'
+        SERVER_IP=$(awk -F '"' '/"SERVER_IP"/\{print $4\}' $WORK_DIR/sing-box-conf/*inbound*.json)
         argo_variable
-        cmd_systemctl disable argo
         if [ -n "$ARGO_TOKEN" ]; then
           [ -s $WORK_DIR/tunnel.json ] && rm -f $WORK_DIR/tunnel.{json,yml}
-          sed -i "s@ExecStart=.*@ExecStart=$WORK_DIR/cloudflared tunnel --edge-ip-version auto run --token ${ARGO_TOKEN}@g" /etc/systemd/system/argo.service
+          sed -i "s@ExecStart=.*@ExecStart=$WORK_DIR/cloudflared tunnel --edge-ip-version auto run --token ${ARGO_TOKEN}@g" ${ARGO_DAEMON_FILE}
         elif [ -n "$ARGO_JSON" ]; then
           [ -s $WORK_DIR/tunnel.json ] && rm -f $WORK_DIR/tunnel.{json,yml}
           json_argo
-          sed -i "s@ExecStart=.*@ExecStart=$WORK_DIR/cloudflared tunnel --edge-ip-version auto --config $WORK_DIR/tunnel.yml run@g" /etc/systemd/system/argo.service
+          sed -i "s@ExecStart=.*@ExecStart=$WORK_DIR/cloudflared tunnel --edge-ip-version auto --config $WORK_DIR/tunnel.yml run@g" ${ARGO_DAEMON_FILE}
         fi
         ;;
-      * )
-        exit 0
-    esac
+    * )
+        warning " $(text 36) [1-2]"
+        # 重新启动服务并退出函数
+        cmd_systemctl enable argo
+        return
+        ;;
+  esac
 
-    json_nginx
-    cmd_systemctl enable argo
-    export_list
+  json_nginx
+  cmd_systemctl enable argo
+  export_list
+}
+
+# 更换 cdn
+change_cdn() {
+  [ ! -d "${WORK_DIR}" ] && error " $(text 71) "
+
+  # 检测是否有使用 CDN，方法是查找是否有 ${WORK_DIR}/conf/
+  local CDN_NOW=$(awk -F '"' '/"SERVER"/{print $4; exit}' ${WORK_DIR}/sing-box-conf/inbound.json)
+
+  # 提示当前使用的 CDN 并让用户选择或输入新的 CDN
+  hint "\n $(text 73) \n"
+  for ((c=0; c<${#CDN_DOMAIN[@]}; c++)); do
+    hint " $[c+1]. ${CDN_DOMAIN[c]} "
+  done
+  reading "\n $(text 74) " CDN_CHOOSE
+
+  # 如果用户直接回车，保持当前 CDN
+  [ -z "$CDN_CHOOSE" ] && exit 0
+
+  # 如果用户输入数字，选择对应的 CDN
+  [[ "$CDN_CHOOSE" =~ ^[1-9][0-9]*$ && "$CDN_CHOOSE" -le "${#CDN_DOMAIN[@]}" ]] && CDN_NEW=${CDN_DOMAIN[$((CDN_CHOOSE-1))]} || CDN_NEW=$CDN_CHOOSE
+
+  # 使用 sed 更新所有文件中的 CDN 值
+  find ${WORK_DIR} -type f | xargs -P 50 sed -i "s/${CDN_NOW}/${CDN_NEW}/g"
+
+  # 更新完成后提示并导出订阅列表
+  export_list; info "\n $(text 75) \n"
 }
 
 uninstall() {
-  if [ -d $WORK_DIR ]; then
-    cmd_systemctl disable argo
-    cmd_systemctl disable sing-box
-    rm -rf $WORK_DIR $TEMP_DIR /etc/systemd/system/{sing-box,argo}.service /usr/bin/sb
-    [ $(ps -ef | grep 'nginx' | wc -l) -le 1 ] && reading "\n $(text 59) " REMOVE_NGINX
+  if [ -d ${WORK_DIR} ]; then
+    [ -s ${ARGO_DAEMON_FILE} ] && cmd_systemctl disable argo &>/dev/null
+    [ -s ${SINGBOX_DAEMON_FILE} ] && cmd_systemctl disable sing-box &>/dev/null
+    sleep 1
+    [[ -s ${WORK_DIR}/nginx.conf && $(ps -ef | grep 'nginx' | wc -l) -le 1 ]] && reading "\n $(text 59) " REMOVE_NGINX
     [ "${REMOVE_NGINX,,}" = 'y' ] && ${PACKAGE_UNINSTALL[int]} nginx >/dev/null 2>&1
+    [ "$SYSTEM" = 'CentOS' ] && firewall_configuration close
+    rm -rf ${WORK_DIR} ${TEMP_DIR} ${ARGO_DAEMON_FILE} ${SINGBOX_DAEMON_FILE} /usr/bin/sb
     info "\n $(text 16) \n"
   else
     error "\n $(text 15) \n"
-  fi
-
-  # 如果 Alpine 系统，删除开机自启动和python3版systemd
-  if [ "$SYSTEM" = 'Alpine' ]; then
-    rm -f /etc/local.d/argo.start /etc/local.d/sing-box.start
-    rc-update add local >/dev/null 2>&1
-    [ ! $(ls /etc/systemd/system/*.service) ] && rm -f /bin/systemctl
   fi
 }
 
@@ -1354,13 +1519,22 @@ menu_setting() {
 
     OPTION[1]="1 .  $(text 29)"
     if [ ${STATUS[0]} = "$(text 28)" ]; then
-      ARGO_MEMORY="$(text 52): $(awk '/VmRSS/{printf "%.1f\n", $2/1024}' /proc/$(awk '/\/etc\/sba\/cloudflared/{print $1}' <<< "$PS_LIST")/status) MB"
-      NGINX_MEMORY="$(text 52): $(awk '/VmRSS/{printf "%.1f\n", $2/1024}' /proc/$(awk '/\/etc\/sba\/nginx/{print $1}' <<< "$PS_LIST")/status) MB"
+      ARGO_PID=$(awk '/\/etc\/sba\/cloudflared/{print $1}' <<< "$PS_LIST")
+      [ -n "$ARGO_PID" ] && [ -f "/proc/$ARGO_PID/status" ] && ARGO_MEMORY="$(text 52): $(awk '/VmRSS/{printf "%.1f\n", $2/1024}' /proc/$ARGO_PID/status) MB" || ARGO_MEMORY="$(text 52): N/A"
+
+      NGINX_PID=$(awk '/\/etc\/sba\/nginx/{print $1}' <<< "$PS_LIST")
+      [ -n "$NGINX_PID" ] && [ -f "/proc/$NGINX_PID/status" ] && NGINX_MEMORY="$(text 52): $(awk '/VmRSS/{printf "%.1f\n", $2/1024}' /proc/$NGINX_PID/status) MB" || NGINX_MEMORY="$(text 52): N/A"
       OPTION[2]="2 .  $(text 27) Argo (sb -a)"
     else
       OPTION[2]="2 .  $(text 28) Argo (sb -a)"
     fi
-    [ ${STATUS[1]} = "$(text 28)" ] && SING_BOX_MEMORY="$(text 52): $(awk '/VmRSS/{printf "%.1f\n", $2/1024}' /proc/$(awk '/\/etc\/sba\/sing-box.*\/etc\/sba/{print $1}' <<< "$PS_LIST")/status) MB" && OPTION[3]="3 .  $(text 27) Sing-box (sb -s)" || OPTION[3]="3 .  $(text 28) Sing-box (sb -s)"
+    if [ ${STATUS[1]} = "$(text 28)" ]; then
+      SING_BOX_PID=$(awk '/\/etc\/sba\/sing-box.*\/etc\/sba/{print $1}' <<< "$PS_LIST")
+      [ -n "$SING_BOX_PID" ] && [ -f "/proc/$SING_BOX_PID/status" ] && SING_BOX_MEMORY="$(text 52): $(awk '/VmRSS/{printf "%.1f\n", $2/1024}' /proc/$SING_BOX_PID/status) MB" || SING_BOX_MEMORY="$(text 52): N/A"
+      OPTION[3]="3 .  $(text 27) Sing-box (sb -s)"
+    else
+      OPTION[3]="3 .  $(text 28) Sing-box (sb -s)"
+    fi
     OPTION[4]="4 .  $(text 30)"
     OPTION[5]="5 .  $(text 31)"
     OPTION[6]="6 .  $(text 32)"
@@ -1370,8 +1544,36 @@ menu_setting() {
     OPTION[10]="10.  $(text 64)"
 
     ACTION[1]() { export_list; }
-    [[ ${STATUS[0]} = "$(text 28)" ]] && ACTION[2]() { cmd_systemctl disable argo; [[ "$(systemctl is-active argo)" =~ 'inactive'|'unknown' ]] && info "\n Argo $(text 27) $(text 37)" || error " Argo $(text 27) $(text 38) "; } || ACTION[2]() { cmd_systemctl enable argo && [ "$(systemctl is-active argo)" = 'active' ] && info "\n Argo $(text 28) $(text 37)" || error " Argo $(text 28) $(text 38) "; }
-    [[ ${STATUS[1]} = "$(text 28)" ]] && ACTION[3]() { cmd_systemctl disable sing-box; [[ "$(systemctl is-active sing-box)" =~ 'inactive'|'unknown' ]] && info "\n Sing-box $(text 27) $(text 37)" || error " Sing-box $(text 27) $(text 38) "; } || ACTION[3]() { cmd_systemctl enable sing-box && [ "$(systemctl is-active sing-box)" = 'active' ] && info "\n Sing-box $(text 28) $(text 37)" || error " Sing-box $(text 28) $(text 38) "; }
+    [[ ${STATUS[0]} = "$(text 28)" ]] && ACTION[2]() {
+      cmd_systemctl disable argo
+      if [ "$SYSTEM" = 'Alpine' ]; then
+        rc-service argo status >/dev/null 2>&1 || info "\n Argo $(text 27) $(text 37)" || error " Argo $(text 27) $(text 38) "
+      else
+        [[ "$(systemctl is-active argo)" =~ 'inactive'|'unknown' ]] && info "\n Argo $(text 27) $(text 37)" || error " Argo $(text 27) $(text 38) "
+      fi
+    } || ACTION[2]() {
+      cmd_systemctl enable argo
+      if [ "$SYSTEM" = 'Alpine' ]; then
+        rc-service argo status >/dev/null 2>&1 && info "\n Argo $(text 28) $(text 37)" || error " Argo $(text 28) $(text 38) "
+      else
+        [ "$(systemctl is-active argo)" = 'active' ] && info "\n Argo $(text 28) $(text 37)" || error " Argo $(text 28) $(text 38) "
+      fi
+    }
+    [[ ${STATUS[1]} = "$(text 28)" ]] && ACTION[3]() {
+      cmd_systemctl disable sing-box
+      if [ "$SYSTEM" = 'Alpine' ]; then
+        rc-service sing-box status >/dev/null 2>&1 || info "\n Sing-box $(text 27) $(text 37)" || error " Sing-box $(text 27) $(text 38) "
+      else
+        [[ "$(systemctl is-active sing-box)" =~ 'inactive'|'unknown' ]] && info "\n Sing-box $(text 27) $(text 37)" || error " Sing-box $(text 27) $(text 38) "
+      fi
+    } || ACTION[3]() {
+      cmd_systemctl enable sing-box
+      if [ "$SYSTEM" = 'Alpine' ]; then
+        rc-service sing-box status >/dev/null 2>&1 && info "\n Sing-box $(text 28) $(text 37)" || error " Sing-box $(text 28) $(text 38) "
+      else
+        [ "$(systemctl is-active sing-box)" = 'active' ] && info "\n Sing-box $(text 28) $(text 37)" || error " Sing-box $(text 28) $(text 38) "
+      fi
+    }
     ACTION[4]() { change_argo; exit; }
     ACTION[5]() { version; }
     ACTION[6]() { bash <(wget --no-check-certificate -qO- ${GH_PROXY}https://raw.githubusercontent.com/ylx2016/Linux-NetSpeed/master/tcp.sh); exit; }
@@ -1426,16 +1628,37 @@ statistics_of_run-times update sba.sh
 [[ "${*,,}" =~ '-e' ]] && L=E
 [[ "${*,,}" =~ '-c' ]] && L=C
 
-while getopts ":AaSsUuNnTtVvBbFf:" OPTNAME; do
+while getopts ":AaSsUuNnTtDdVvBbFf:" OPTNAME; do
   case "${OPTNAME,,}" in
-    a ) select_language; check_system_info; check_install; [ "${STATUS[0]}" = "$(text 28)" ] && { cmd_systemctl disable argo; [[ "$(systemctl is-active argo)" =~ 'inactive'|'unknown' ]] && info "\n Argo $(text 27) $(text 37)" || error " Argo $(text 27) $(text 38) "; } || { cmd_systemctl enable argo; [ "$(systemctl is-active argo)" = 'active' ] && info "\n Argo $(text 28) $(text 37)" || error " Argo $(text 28) $(text 38) "; } ;  exit 0 ;;
-    s ) select_language; check_system_info; check_install; [ "${STATUS[1]}" = "$(text 28)" ] && { cmd_systemctl disable sing-box; [[ "$(systemctl is-active sing-box)" =~ 'inactive'|'unknown' ]] && info "\n Sing-box $(text 27) $(text 37)" || error " Sing-box $(text 27) $(text 38) "; } || { cmd_systemctl enable sing-box; [ "$(systemctl is-active sing-box)" = 'active' ] && info "\n Sing-box $(text 28) $(text 37)" || error " Sing-box $(text 28) $(text 38) "; } ;  exit 0 ;;
+    a ) select_language; check_system_info; check_install
+      case "${STATUS[0]}" in
+        "$(text 28)" )
+          cmd_systemctl disable argo
+          cmd_systemctl status argo &>/dev/null && error " Argo $(text 27) $(text 38) " || info "\n Argo $(text 27) $(text 37)"
+          ;;
+        *)
+          cmd_systemctl enable argo
+          cmd_systemctl status argo &>/dev/null && info "\n Argo $(text 28) $(text 37)" || error " Argo $(text 28) $(text 38) "
+      esac
+      exit 0 ;;
+    s ) select_language; check_system_info; check_install
+      case "${STATUS[1]}" in
+        "$(text 28)" )
+          cmd_systemctl disable sing-box
+          cmd_systemctl status sing-box &>/dev/null && error " Sing-box $(text 27) $(text 38) " || info "\n Sing-box $(text 27) $(text 37)"
+          ;;
+        *)
+          cmd_systemctl enable sing-box
+          cmd_systemctl status sing-box &>/dev/null && info "\n Sing-box $(text 28) $(text 37)" || error " Sing-box $(text 28) $(text 38) "
+      esac
+      exit 0 ;;
     u ) select_language; check_system_info; uninstall; exit 0 ;;
-    n ) select_language; check_system_info; export_list; exit 0 ;;
+    n ) select_language; check_system_info; check_brutal; export_list; exit 0 ;;
     t ) select_language; change_argo; exit 0 ;;
+    d ) select_language; check_system_info; check_brutal; change_cdn; exit 0 ;;
     v ) select_language; check_arch; version; exit 0;;
     b ) select_language; bash <(wget --no-check-certificate -qO- "${GH_PROXY}https://raw.githubusercontent.com/ylx2016/Linux-NetSpeed/master/tcp.sh"); exit ;;
-    f ) VARIABLE_FILE=$OPTARG; . $VARIABLE_FILE ;;
+    f ) NONINTERACTIVE_INSTALL='noninteractive_install'; VARIABLE_FILE=$OPTARG; . $VARIABLE_FILE ;;
   esac
 done
 
