@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # 当前脚本版本号
-VERSION='1.1.4 (2025.04.26)'
+VERSION='1.1.4 (2025.04.28)'
 
 # 各变量默认值
 GH_PROXY='https://ghfast.top/'
@@ -157,20 +157,16 @@ E[67]="Ports are in used: \$REALITY_PORT"
 C[67]="正在使用中的端口: \$REALITY_PORT"
 E[68]="Adaptive Clash / V2rayN / NekoBox / ShadowRocket / SFI / SFA / SFM Clients"
 C[68]="自适应 Clash / V2rayN / NekoBox / ShadowRocket / SFI / SFA / SFM 客户端"
-E[69]=""
-C[69]=""
-E[70]="Set SElinux: enforcing --> disabled"
-C[70]="设置 SElinux: enforcing --> disabled"
-E[71]="Sing-box is not installed and cannot change the CDN."
-C[71]="Sing-box 未安装，不能更换 CDN"
-E[72]="Change CDN"
-C[72]="更换 CDN"
-E[73]="Current CDN is: \${CDN_NOW}"
-C[73]="当前 CDN 为: \${CDN_NOW}"
-E[74]="Please select or enter a new CDN (press Enter to keep the current one):"
-C[74]="请选择或输入新的 CDN (回车保持当前值):"
-E[75]="CDN has been changed from \${CDN_NOW} to \${CDN_NEW}"
-C[75]="CDN 已从 \${CDN_NOW} 更改为 \${CDN_NEW}"
+E[69]="Set SElinux: enforcing --> disabled"
+C[69]="设置 SElinux: enforcing --> disabled"
+E[70]="Sing-box is not installed and cannot change the CDN."
+C[70]="Sing-box 未安装，不能更换 CDN"
+E[71]="Current CDN is: \${CDN_NOW}"
+C[71]="当前 CDN 为: \${CDN_NOW}"
+E[72]="Please select or enter a new CDN (press Enter to keep the current one):"
+C[72]="请选择或输入新的 CDN (回车保持当前值):"
+E[73]="CDN has been changed from \${CDN_NOW} to \${CDN_NEW}"
+C[73]="CDN 已从 \${CDN_NOW} 更改为 \${CDN_NEW}"
 
 # 自定义字体彩色，read 函数
 warning() { echo -e "\033[31m\033[01m$*\033[0m"; }  # 红色
@@ -272,8 +268,8 @@ check_install() {
   STATUS[1]=$(text 26)
   # sing-box systemd 文件存在的话，检测一下是否本脚本安装的，如果不是则提示并退出
   if [ -s ${SINGBOX_DAEMON_FILE} ]; then
-    ! grep -q "$WORK_DIR" ${SINGBOX_DAEMON_FILE} && error " $(text 53)\n $(grep 'ExecStart=' ${SINGBOX_DAEMON_FILE}) "
-    STATUS[1]=$(text 27) && [ "$(systemctl is-active sing-box)" = 'active' ] && STATUS[1]=$(text 28)
+    ! grep -q "$WORK_DIR" ${SINGBOX_DAEMON_FILE} && error " $(text 53)\n $(grep "${DAEMON_RUN_PATTERN}" ${SINGBOX_DAEMON_FILE}) "
+    STATUS[1]=$(text 27) && cmd_systemctl status sing-box &>/dev/null && STATUS[1]=$(text 28)
   fi
 
   # 下载所需文件
@@ -384,11 +380,11 @@ check_system_info() {
   [[ "$(echo "$SYS" | sed "s/[^0-9.]//g" | cut -d. -f1)" -lt "${MAJOR[int]}" ]] && error " $(text 6) "
 
   # 针对部分系统作特殊处理
-  ARGO_DAEMON_FILE='/etc/systemd/system/argo.service'; SINGBOX_DAEMON_FILE='/etc/systemd/system/sing-box.service'
+  ARGO_DAEMON_FILE='/etc/systemd/system/argo.service'; SINGBOX_DAEMON_FILE='/etc/systemd/system/sing-box.service'; DAEMON_RUN_PATTERN="ExecStart="
   if [ "$SYSTEM" = 'CentOS' ]; then
     IS_CENTOS="CentOS$(echo "$SYS" | sed "s/[^0-9.]//g" | cut -d. -f1)"
   elif [ "$SYSTEM" = 'Alpine' ]; then
-    ARGO_DAEMON_FILE='/etc/init.d/argo'; SINGBOX_DAEMON_FILE='/etc/init.d/sing-box'
+    ARGO_DAEMON_FILE='/etc/init.d/argo'; SINGBOX_DAEMON_FILE='/etc/init.d/sing-box'; DAEMON_RUN_PATTERN="command_args="
   fi
 }
 
@@ -548,11 +544,12 @@ sing_box_variable() {
 check_dependencies() {
   # 如果是 Alpine，先升级 wget
   if [ "$SYSTEM" = 'Alpine' ]; then
-    CHECK_WGET=$(wget 2>&1 | head -n 1)
+    local CHECK_WGET=$(wget 2>&1 | head -n 1)
     grep -qi 'busybox' <<< "$CHECK_WGET" && ${PACKAGE_INSTALL[int]} wget >/dev/null 2>&1
 
-    local DEPS_CHECK=("bash" "rc-update" "virt-what" "python3")
-    local DEPS_INSTALL=("bash" "openrc" "virt-what" "python3")
+    # Alpine 系统只检查必要的依赖，不需要 systemctl 和 python3
+    local DEPS_CHECK=("bash" "rc-update" "virt-what")
+    local DEPS_INSTALL=("bash" "openrc" "virt-what")
     for g in "${!DEPS_CHECK[@]}"; do
       [ ! -x "$(type -p ${DEPS_CHECK[g]})" ] && DEPS_ALPINE+=(${DEPS_INSTALL[g]})
     done
@@ -565,9 +562,12 @@ check_dependencies() {
   fi
 
   # 检测 Linux 系统的依赖，升级库并重新安装依赖
-  local DEPS_CHECK=("wget" "systemctl" "ss" "tar" "bash" "nginx" "openssl")
-  local DEPS_INSTALL=("wget" "systemctl" "iproute2" "tar" "bash" "nginx" "openssl")
+  local DEPS_CHECK=("wget" "ss" "tar" "bash" "nginx" "openssl")
+  local DEPS_INSTALL=("wget" "iproute2" "tar" "bash" "nginx" "openssl")
 
+  # 非 Alpine 系统额外需要 systemctl
+  [ "$SYSTEM" != 'Alpine' ] && DEPS_CHECK+=("systemctl") && DEPS_INSTALL+=("systemctl")
+  
   for g in "${!DEPS_CHECK[@]}"; do
     [ ! -x "$(type -p ${DEPS_CHECK[g]})" ] && DEPS+=(${DEPS_INSTALL[g]})
   done
@@ -596,7 +596,7 @@ firewall_configuration() {
   firewall-cmd --reload >/dev/null 2>&1
 
   if [[ -s /etc/selinux/config && -x "$(type -p getenforce)" && $(getenforce) = 'Enforcing' ]]; then
-    hint "\n $(text 70) "
+    hint "\n $(text 69) "
     setenforce 0
     grep -qs '^SELINUX=disabled$' /etc/selinux/config || sed -i 's/^SELINUX=[epd].*/# &/; /SELINUX=[epd]/a\SELINUX=disabled' /etc/selinux/config
   fi
@@ -1429,17 +1429,17 @@ change_argo() {
 
 # 更换 cdn
 change_cdn() {
-  [ ! -d "${WORK_DIR}" ] && error " $(text 71) "
+  [ ! -d "${WORK_DIR}" ] && error " $(text 70) "
 
   # 检测是否有使用 CDN，方法是查找是否有 ${WORK_DIR}/conf/
   local CDN_NOW=$(awk -F '"' '/"SERVER"/{print $4; exit}' ${WORK_DIR}/sing-box-conf/inbound.json)
 
   # 提示当前使用的 CDN 并让用户选择或输入新的 CDN
-  hint "\n $(text 73) \n"
+  hint "\n $(text 71) \n"
   for ((c=0; c<${#CDN_DOMAIN[@]}; c++)); do
     hint " $[c+1]. ${CDN_DOMAIN[c]} "
   done
-  reading "\n $(text 74) " CDN_CHOOSE
+  reading "\n $(text 72) " CDN_CHOOSE
 
   # 如果用户直接回车，保持当前 CDN
   [ -z "$CDN_CHOOSE" ] && exit 0
@@ -1451,7 +1451,7 @@ change_cdn() {
   find ${WORK_DIR} -type f | xargs -P 50 sed -i "s/${CDN_NOW}/${CDN_NEW}/g"
 
   # 更新完成后提示并导出订阅列表
-  export_list; info "\n $(text 75) \n"
+  export_list; info "\n $(text 73) \n"
 }
 
 uninstall() {
@@ -1488,7 +1488,7 @@ version() {
     if [ -s $TEMP_DIR/cloudflared ]; then
       cmd_systemctl disable argo
       chmod +x $TEMP_DIR/cloudflared && mv $TEMP_DIR/cloudflared $WORK_DIR/cloudflared
-      cmd_systemctl enable argo && [ "$(systemctl is-active argo)" = 'active' ] && info " Argo $(text 28) $(text 37)" || error " Argo $(text 28) $(text 38) "
+      cmd_systemctl enable argo && systemctl status argo &>/dev/null && info " Argo $(text 28) $(text 37)" || error " Argo $(text 28) $(text 38) "
     else
       local APP=ARGO && error "\n $(text 48) "
     fi
@@ -1499,7 +1499,7 @@ version() {
       cmd_systemctl disable sing-box
       mv $TEMP_DIR/sing-box-$ONLINE-linux-$SING_BOX_ARCH/sing-box $WORK_DIR
       rm -rf $TEMP_DIR/sing-box-$ONLINE-linux-$SING_BOX_ARCH
-      cmd_systemctl enable sing-box && [ "$(systemctl is-active sing-box)" = 'active' ] && info " Sing-box $(text 28) $(text 37)" || error " Sing-box  $(text 28) $(text 38) "
+      cmd_systemctl enable sing-box && systemctl status sing-box &>/dev/null && info " Sing-box $(text 28) $(text 37)" || error " Sing-box  $(text 28) $(text 38) "
     else
       local APP=Sing-box && error "\n $(text 48) "
     fi
@@ -1544,35 +1544,23 @@ menu_setting() {
     OPTION[10]="10.  $(text 64)"
 
     ACTION[1]() { export_list; }
-    [[ ${STATUS[0]} = "$(text 28)" ]] && ACTION[2]() {
+    [[ ${STATUS[0]} = "$(text 28)" ]] &&
+    ACTION[2]() {
       cmd_systemctl disable argo
-      if [ "$SYSTEM" = 'Alpine' ]; then
-        rc-service argo status >/dev/null 2>&1 || info "\n Argo $(text 27) $(text 37)" || error " Argo $(text 27) $(text 38) "
-      else
-        [[ "$(systemctl is-active argo)" =~ 'inactive'|'unknown' ]] && info "\n Argo $(text 27) $(text 37)" || error " Argo $(text 27) $(text 38) "
-      fi
-    } || ACTION[2]() {
+      cmd_systemctl status argo &>/dev/null && error " Argo $(text 27) $(text 38) " || info "\n Argo $(text 27) $(text 37)"
+    } ||
+    ACTION[2]() {
       cmd_systemctl enable argo
-      if [ "$SYSTEM" = 'Alpine' ]; then
-        rc-service argo status >/dev/null 2>&1 && info "\n Argo $(text 28) $(text 37)" || error " Argo $(text 28) $(text 38) "
-      else
-        [ "$(systemctl is-active argo)" = 'active' ] && info "\n Argo $(text 28) $(text 37)" || error " Argo $(text 28) $(text 38) "
-      fi
+      cmd_systemctl status argo &>/dev/null && info "\n Argo $(text 28) $(text 37)" || error " Argo $(text 28) $(text 38) "
     }
-    [[ ${STATUS[1]} = "$(text 28)" ]] && ACTION[3]() {
+    [[ ${STATUS[1]} = "$(text 28)" ]] &&
+    ACTION[3]() {
       cmd_systemctl disable sing-box
-      if [ "$SYSTEM" = 'Alpine' ]; then
-        rc-service sing-box status >/dev/null 2>&1 || info "\n Sing-box $(text 27) $(text 37)" || error " Sing-box $(text 27) $(text 38) "
-      else
-        [[ "$(systemctl is-active sing-box)" =~ 'inactive'|'unknown' ]] && info "\n Sing-box $(text 27) $(text 37)" || error " Sing-box $(text 27) $(text 38) "
-      fi
-    } || ACTION[3]() {
+      cmd_systemctl status sing-box &>/dev/null && error " Sing-box $(text 27) $(text 38) " || info "\n Sing-box $(text 27) $(text 37)"
+    } ||
+    ACTION[3]() {
       cmd_systemctl enable sing-box
-      if [ "$SYSTEM" = 'Alpine' ]; then
-        rc-service sing-box status >/dev/null 2>&1 && info "\n Sing-box $(text 28) $(text 37)" || error " Sing-box $(text 28) $(text 38) "
-      else
-        [ "$(systemctl is-active sing-box)" = 'active' ] && info "\n Sing-box $(text 28) $(text 37)" || error " Sing-box $(text 28) $(text 38) "
-      fi
+      cmd_systemctl stauts sing-box &>/dev/null && info "\n Sing-box $(text 28) $(text 37)" || error " Sing-box $(text 28) $(text 38) "
     }
     ACTION[4]() { change_argo; exit; }
     ACTION[5]() { version; }
