@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # 当前脚本版本号
-VERSION='1.1.4 (2025.04.28)'
+VERSION='1.1.4 (2025.04.30)'
 
 # 各变量默认值
 GH_PROXY='https://ghfast.top/'
@@ -567,7 +567,7 @@ check_dependencies() {
 
   # 非 Alpine 系统额外需要 systemctl
   [ "$SYSTEM" != 'Alpine' ] && DEPS_CHECK+=("systemctl") && DEPS_INSTALL+=("systemctl")
-  
+
   for g in "${!DEPS_CHECK[@]}"; do
     [ ! -x "$(type -p ${DEPS_CHECK[g]})" ] && DEPS+=(${DEPS_INSTALL[g]})
   done
@@ -1381,51 +1381,71 @@ EOF
 # 更换 Argo 隧道类型
 change_argo() {
   check_install
-  [[ ${STATUS[0]} = "$(text 26)" ]] && error "\n $(text 39) \n"
+  [[ ${STATUS[0]} = "$(text 26)" ]] && error " $(text 39) "
+  SERVER_IP=$(awk -F '"' '/"SERVER_IP"/{print $4}' $WORK_DIR/sing-box-conf/*inbound*.json)
 
-  # 停止 argo 服务
-  cmd_systemctl disable argo
-
-  # 获取当前隧道信息
-  ARGO_TYPE=$(grep -m1 '"type":' $WORK_DIR/tunnel.json | cut -d\" -f4)
-  ARGO_DOMAIN=$(grep -m1 '"hostname":' $WORK_DIR/tunnel.json | cut -d\" -f4)
+  case $(grep "${DAEMON_RUN_PATTERN}" ${ARGO_DAEMON_FILE}) in
+    *--config* )
+      ARGO_TYPE='Json'; ARGO_DOMAIN="$(grep -m1 '^vless' $WORK_DIR/list | sed "s@.*host=\(.*\)&.*@\1@g")" ;;
+    *--token* )
+      ARGO_TYPE='Token'; ARGO_DOMAIN="$(grep -m1 '^vless' $WORK_DIR/list | sed "s@.*host=\(.*\)&.*@\1@g")" ;;
+    * )
+      ARGO_TYPE='Try'
+      ARGO_DOMAIN=$(wget -qO- http://localhost:${METRICS_PORT}/quicktunnel | awk -F '"' '{print $4}')
+  esac
 
   hint "\n $(text 40) \n"
   unset ARGO_DOMAIN
-
-  # 选择隧道类型
-  hint "\n $(text 41) \n"
-  reading " $(text 24) " ARGO_CHOOSE
-  case "$ARGO_CHOOSE" in
-    1 ) ARGO_TYPE='Try'
-        # 使用临时隧道
+  hint " $(text 41) \n" && reading " $(text 24) " CHANGE_TO
+  case "$CHANGE_TO" in
+    1 )
+      cmd_systemctl disable argo
+      [ -s $WORK_DIR/tunnel.json ] && rm -f $WORK_DIR/tunnel.{json,yml}
+      if [ "$SYSTEM" = 'Alpine' ]; then
+        # 修改 Alpine 的 OpenRC 服务文件
+        local ARGS="--edge-ip-version auto --no-autoupdate --no-tls-verify --metrics 0.0.0.0:${METRICS_PORT} --url http://localhost:3010"
+        sed -i "s@^command_args=.*@command_args=\"$ARGS\"@g" ${ARGO_DAEMON_FILE}
+      else
+        # 修改 systemd 服务文件
+        sed -i "s@ExecStart=.*@ExecStart=$WORK_DIR/cloudflared tunnel --edge-ip-version auto --no-autoupdate --no-tls-verify --metrics 0.0.0.0:${METRICS_PORT} --url http://localhost:3010@g" ${ARGO_DAEMON_FILE}
+      fi
+      ;;
+    2 )
+      SERVER_IP=$(awk -F '"' '/"SERVER_IP"/{print $4}' $WORK_DIR/sing-box-conf/*inbound*.json)
+      argo_variable
+      cmd_systemctl disable argo
+      if [ -n "$ARGO_TOKEN" ]; then
         [ -s $WORK_DIR/tunnel.json ] && rm -f $WORK_DIR/tunnel.{json,yml}
-        sed -i "s@ExecStart=.*@ExecStart=$WORK_DIR/cloudflared tunnel --edge-ip-version auto --no-autoupdate --no-tls-verify --metrics 0.0.0.0:$METRICS_PORT --url https://localhost:3010@g" ${ARGO_DAEMON_FILE}
-        ;;
-    2 ) ARGO_TYPE='Token'
-        SERVER_IP=$(awk -F '"' '/"SERVER_IP"/\{print $4\}' $WORK_DIR/sing-box-conf/*inbound*.json)
-        argo_variable
-        if [ -n "$ARGO_TOKEN" ]; then
-          [ -s $WORK_DIR/tunnel.json ] && rm -f $WORK_DIR/tunnel.{json,yml}
+        if [ "$SYSTEM" = 'Alpine' ]; then
+          # 修改 Alpine 的 OpenRC 服务文件
+          local ARGS="--edge-ip-version auto run --token ${ARGO_TOKEN}"
+          sed -i "s@^command_args=.*@command_args=\"$ARGS\"@g" ${ARGO_DAEMON_FILE}
+        else
+          # 修改 systemd 服务文件
           sed -i "s@ExecStart=.*@ExecStart=$WORK_DIR/cloudflared tunnel --edge-ip-version auto run --token ${ARGO_TOKEN}@g" ${ARGO_DAEMON_FILE}
-        elif [ -n "$ARGO_JSON" ]; then
-          [ -s $WORK_DIR/tunnel.json ] && rm -f $WORK_DIR/tunnel.{json,yml}
-          json_argo
+        fi
+      elif [ -n "$ARGO_JSON" ]; then
+        [ -s $WORK_DIR/tunnel.json ] && rm -f $WORK_DIR/tunnel.{json,yml}
+        json_argo
+        if [ "$SYSTEM" = 'Alpine' ]; then
+          # 修改 Alpine 的 OpenRC 服务文件
+          local ARGS="--edge-ip-version auto --config $WORK_DIR/tunnel.yml run"
+          sed -i "s@^command_args=.*@command_args=\"$ARGS\"@g" ${ARGO_DAEMON_FILE}
+        else
+          # 修改 systemd 服务文件
           sed -i "s@ExecStart=.*@ExecStart=$WORK_DIR/cloudflared tunnel --edge-ip-version auto --config $WORK_DIR/tunnel.yml run@g" ${ARGO_DAEMON_FILE}
         fi
-        ;;
+      fi
+      ;;
     * )
-        warning " $(text 36) [1-2]"
-        # 重新启动服务并退出函数
-        cmd_systemctl enable argo
-        return
-        ;;
+      exit 0
   esac
 
   json_nginx
   cmd_systemctl enable argo
   export_list
 }
+
 
 # 更换 cdn
 change_cdn() {
@@ -1511,7 +1531,10 @@ menu_setting() {
   if [[ ${STATUS[*]} =~ $(text 27)|$(text 28) ]]; then
     if [ -s $WORK_DIR/cloudflared ]; then
       ARGO_VERSION=$($WORK_DIR/cloudflared -v | awk '{print $3}' | sed "s@^@Version: &@g")
-      [ $(ps -ef | grep "metrics.*:3010" | wc -l) -gt 1 ] && ARGO_CHECKHEALTH="$(text 46): $(wget --no-check-certificate -qO- http://localhost:$(ps -ef | awk -F '0.0.0.0:' '/cloudflared.*:3010/{print $2}' | awk 'NR==1 {print $1}')/healthcheck | sed "s/OK/$(text 37)/")"
+      grep -q '^Alpine$' <<< "$SYSTEM" && local PID_COLUMN='1' || local PID_COLUMN='2'
+      local PID=$(ps -ef | awk -v work_dir="${WORK_DIR}" -v col="$PID_COLUMN" '$0 ~ work_dir".*cloudflared" && !/grep/ {print $col; exit}')
+      local REALTIME_METRICS_PORT=$(ss -nltp | awk -v pid=$PID '$0 ~ "pid="pid"," {split($4, a, ":"); print a[length(a)]}')
+      ss -nltp | grep -q "cloudflared.*pid=${PID}," && ARGO_CHECKHEALTH="$(text 46): $(wget -qO- http://localhost:${REALTIME_METRICS_PORT}/healthcheck | sed "s/OK/$(text 37)/")"
     fi
     [ -s $WORK_DIR/sing-box ] && SING_BOX_VERSION=$($WORK_DIR/sing-box version | awk '/version/{print $NF}' | sed "s@^@Version: &@g")
     [ "$SYSTEM" = 'Alpine' ] && PS_LIST=$(ps -ef) || PS_LIST=$(ps -ef | grep -E 'sing-box|cloudflared|nginx' | awk '{ $1=""; sub(/^ */, ""); print $0 }')
@@ -1642,7 +1665,7 @@ while getopts ":AaSsUuNnTtDdVvBbFf:" OPTNAME; do
       exit 0 ;;
     u ) select_language; check_system_info; uninstall; exit 0 ;;
     n ) select_language; check_system_info; check_brutal; export_list; exit 0 ;;
-    t ) select_language; change_argo; exit 0 ;;
+    t ) select_language; check_system_info; check_brutal; change_argo; exit 0 ;;
     d ) select_language; check_system_info; check_brutal; change_cdn; exit 0 ;;
     v ) select_language; check_arch; version; exit 0;;
     b ) select_language; bash <(wget --no-check-certificate -qO- "${GH_PROXY}https://raw.githubusercontent.com/ylx2016/Linux-NetSpeed/master/tcp.sh"); exit ;;
