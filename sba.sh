@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # 当前脚本版本号
-VERSION='1.1.4 (2025.07.28)'
+VERSION='1.1.4 (2025.10.31)'
 
 # 各变量默认值
 GH_PROXY='gh-proxy.com/'
@@ -1416,7 +1416,7 @@ EOF
   cat $WORK_DIR/list
 
   # 显示脚本使用情况数据
-  statistics_of_run-times get
+  # statistics_of_run-times get
 }
 
 # 更换 Argo 隧道类型
@@ -1673,7 +1673,7 @@ menu() {
 }
 
 check_cdn
-statistics_of_run-times update sba.sh
+# statistics_of_run-times update sba.sh 2>/dev/null
 
 # 传参
 [[ "${*,,}" =~ '-e' ]] && L=E
