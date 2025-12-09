@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # 当前脚本版本号
-VERSION='1.1.5 (2025.11.10)'
+VERSION='1.1.6 (2025.12.09)'
 
 # 各变量默认值
 GH_PROXY='https://hub.glowp.xyz/'
@@ -9,7 +9,7 @@ WS_PATH_DEFAULT='sba'
 WORK_DIR='/etc/sba'
 TEMP_DIR='/tmp/sba'
 TLS_SERVER=addons.mozilla.org
-CDN_DOMAIN=("skk.moe" "ip.sb" "time.is" "cfip.xxxxxxxx.tk" "bestcf.top" "cdn.2020111.xyz" "xn--b6gac.eu.org")
+CDN_DOMAIN=("skk.moe" "ip.sb" "time.is" "cfip.xxxxxxxx.tk" "bestcf.top" "cdn.2020111.xyz" "xn--b6gac.eu.org" "cf.090227.xyz")
 SUBSCRIBE_TEMPLATE="https://raw.githubusercontent.com/fscarmen/client_template/main"
 METRICS_PORT='3014'
 DEFAULT_NEWEST_VERSION='1.13.0-alpha.27'
@@ -22,8 +22,8 @@ mkdir -p $TEMP_DIR
 
 E[0]="Language:\n 1. English (default) \n 2. 简体中文"
 C[0]="${E[0]}"
-E[1]="Replace multiplex with xtls-rprx-vision flow control in reality configuration."
-C[1]="在 reality 配置中将多路复用 multiplex 替换为 xtls-rprx-vision 流控"
+E[1]="Quick Install Mode: Added a one-click installation feature that auto-fills all parameters, simplifying the deployment process. Chinese users can use -l or -L; English users can use -k or -K. Case-insensitive support makes operations more flexible."
+C[1]="极速安装模式：新增一键安装功能，所有参数自动填充，简化部署流程。中文用户使用 -l 或 -L，英文用户使用 -k 或 -K，大小写均支持，操作更灵活"
 E[2]="Project to create Argo tunnels and Sing-box specifically for VPS, detailed:[https://github.com/fscarmen/sba]\n Features:\n\t • Allows the creation of Argo tunnels via Token, Json and ad hoc methods. User can easily obtain the json at https://fscarmen.cloudflare.now.cc .\n\t • Extremely fast installation method, saving users time.\n\t • Support system: Ubuntu, Debian, CentOS, Alpine and Arch Linux 3.\n\t • Support architecture: AMD,ARM and s390x\n"
 C[2]="本项目专为 VPS 添加 Argo 隧道及 Sing-Box,详细说明: [https://github.com/fscarmen/sba]\n 脚本特点:\n\t • 允许通过 Token, Json 及 临时方式来创建 Argo 隧道,用户通过以下网站轻松获取 json: https://fscarmen.cloudflare.now.cc\n\t • 极速安装方式,大大节省用户时间\n\t • 智能判断操作系统: Ubuntu 、Debian 、CentOS 、Alpine 和 Arch Linux,请务必选择 LTS 系统\n\t • 支持硬件结构类型: AMD 和 ARM\n"
 E[3]="Input errors up to 5 times.The script is aborted."
@@ -168,6 +168,8 @@ E[72]="Please select or enter a new CDN (press Enter to keep the current one):"
 C[72]="请选择或输入新的 CDN (回车保持当前值):"
 E[73]="CDN has been changed from \${CDN_NOW} to \${CDN_NEW}"
 C[73]="CDN 已从 \${CDN_NOW} 更改为 \${CDN_NEW}"
+E[74]="Quick install mode (sb -k)"
+C[74]="极速安装模式 (sb -l)"
 
 # 自定义字体彩色，read 函数
 warning() { echo -e "\033[31m\033[01m$*\033[0m"; }  # 红色
@@ -495,24 +497,26 @@ argo_variable() {
   [ -z "$SERVER_IP" ] && error " $(text 65) "
 
   # 处理可能输入的错误，去掉开头和结尾的空格，去掉最后的 :
-  [[ "$NONINTERACTIVE_INSTALL" != 'noninteractive_install' && -z "$ARGO_DOMAIN" ]] && reading "\n $(text 10) " ARGO_DOMAIN
+  ! grep -q 'noninteractive_install' <<< "$NONINTERACTIVE_INSTALL" && [ -z "$ARGO_DOMAIN" ] && reading "\n $(text 10) " ARGO_DOMAIN
   grep -q '.' <<< "$ARGO_DOMAIN" && ARGO_DOMAIN=$(sed 's/[ ]*//g; s/:[ ]*//' <<< "$ARGO_DOMAIN")
 
   if [[ -n "$ARGO_DOMAIN" && -z "$ARGO_AUTH" ]]; then
     local a=5
-    until [[ "$ARGO_AUTH" =~ TunnelSecret || "$ARGO_AUTH" =~ ^[A-Z0-9a-z=]{120,250}$ || "$ARGO_AUTH" =~ .*cloudflared.*service[[:space:]]+install[[:space:]]+[A-Z0-9a-z=]{1,100} ]]; do
-      [ "$a" = 0 ] && error "\n $(text 3) \n" || reading "\n $(text 11) " ARGO_AUTH
-      if [[ "$ARGO_AUTH" =~ TunnelSecret ]]; then
-        ARGO_JSON=${ARGO_AUTH//[ ]/}
-      elif [[ "$ARGO_AUTH" =~ ^[A-Z0-9a-z=]{120,250}$ ]]; then
-        ARGO_TOKEN=$ARGO_AUTH
-      elif [[ "$ARGO_AUTH" =~ .*cloudflared.*service[[:space:]]+install[[:space:]]+[A-Z0-9a-z=]{1,100} ]]; then
-        ARGO_TOKEN=$(awk -F ' ' '{print $NF}' <<< "$ARGO_AUTH")
-      else
+    until [[ "$ARGO_AUTH" =~ TunnelSecret || "$ARGO_AUTH" =~ [A-Z0-9a-z=]{120,250}$ ]]; do
+      ((a--)) || true
+      if [ "$a" = 0 ]; then
+        error "\n $(text 3) \n"
+      elif (( a < 4 )); then
         warning "\n $(text 45) \n"
       fi
-      ((a--)) || true
+      reading "\n $(text 11) " ARGO_AUTH
     done
+  fi
+
+  if [[ "$ARGO_AUTH" =~ TunnelSecret ]]; then
+    ARGO_JSON=${ARGO_AUTH//[ ]/}
+  elif [[ "$ARGO_AUTH" =~ [A-Z0-9a-z=]{120,250}$ ]]; then
+    ARGO_TOKEN=$(awk -F ' ' '{print $NF}' <<< "$ARGO_AUTH")
   fi
 }
 
@@ -647,7 +651,7 @@ firewall_configuration() {
 json_nginx() {
   if [ -s $WORK_DIR/sing-box-conf/*inbound*.json ]; then
     JSON=$(cat $WORK_DIR/sing-box-conf/*inbound*.json)
-    WS_PATH=$(expr "$JSON" : '.*path":"/\(.*\)-vl.*')
+    WS_PATH=$(expr "$JSON" : '.*path":[ ]*"/\(.*\)-vl.*')
     SERVER_IP=${SERVER_IP:-"$(awk -F '"' '/"SERVER_IP"/{print $4}' <<< "$JSON")"}
     UUID=$(awk -F '"' '/"password"/{print $4}' <<< "$JSON")
   fi
@@ -666,7 +670,7 @@ events {
 http {
   map \$http_user_agent \$path {
     default                    /;                # 默认路径
-    ~*v2rayN|Neko              /base64;          # 匹配 V2rayN / NekoBox 客户端
+    ~*v2rayN|Neko|Throne       /base64;          # 匹配 V2rayN / NekoBox / Throne 客户端
     ~*clash                    /clash;           # 匹配 Clash 客户端
     ~*ShadowRocket             /shadowrocket;    # 匹配 ShadowRocket  客户端
     ~*SFM                      /sing-box-pc;     # 匹配 Sing-box pc 客户端
@@ -700,24 +704,10 @@ http {
   local NGINX_MINOR=$(awk -F. '{print $2}' <<< "$NGINX_VERSION")
 
   # Nginx 1.25.0 及以上版本支持 http2 on; 指令
-  if [[ "$NGINX_MAJOR" -gt 1 || ("$NGINX_MAJOR" -eq 1 && "$NGINX_MINOR" -ge 25) ]]; then
-    NGINX_CONF+="
-    listen 127.0.0.1:3010 ssl; # sing-box backend
-    http2 on;"
-  else
-    # 早期版本使用 listen ... ssl http2; 语法
-    NGINX_CONF+="
-    listen 127.0.0.1:3010 ssl http2; # sing-box backend"
-  fi
   NGINX_CONF+="
-    server_name $TLS_SERVER;
+    listen 127.0.0.1:3010; # sing-box backend
 
-    ssl_certificate            $WORK_DIR/cert/cert.pem;
-    ssl_certificate_key        $WORK_DIR/cert/private.key;
-    ssl_protocols              TLSv1.3;
-    ssl_session_tickets        on;
-    ssl_stapling               off;
-    ssl_stapling_verify        off;
+    server_name localhost;
 
     # 反代 sing-box vless websocket
     location /$WS_PATH-vl {
@@ -789,9 +779,7 @@ credentials-file: $WORK_DIR/tunnel.json
 
 ingress:
   - hostname: ${ARGO_DOMAIN}
-    service: https://localhost:3010
-    originRequest:
-      noTLSVerify: true
+    service: http://localhost:3010
   - service: http_status:404
 EOF
 }
@@ -815,7 +803,7 @@ install_sba() {
   elif [[ -n "${ARGO_TOKEN}" && -n "${ARGO_DOMAIN}" ]]; then
     ARGO_RUNS="$WORK_DIR/cloudflared tunnel --edge-ip-version auto run --token ${ARGO_TOKEN}"
   else
-    ARGO_RUNS="$WORK_DIR/cloudflared tunnel --edge-ip-version auto --no-autoupdate --no-tls-verify --metrics 0.0.0.0:$METRICS_PORT --url https://localhost:3010"
+    ARGO_RUNS="$WORK_DIR/cloudflared tunnel --edge-ip-version auto --no-autoupdate --no-tls-verify --metrics 0.0.0.0:$METRICS_PORT --url http://localhost:3010"
   fi
 
   # 生成100年的自签证书
@@ -940,15 +928,15 @@ EOF
   [ -z "$REALITY_PRIVATE" ] && REALITY_PRIVATE=$(awk '/PrivateKey/{print $NF}' <<< "$REALITY_KEYPAIR")
   [ -z "$REALITY_PUBLIC" ] && REALITY_PUBLIC=$(awk '/PublicKey/{print $NF}' <<< "$REALITY_KEYPAIR")
   cat > $WORK_DIR/sing-box-conf/inbound.json << EOF
-//  "SERVER_IP":"${SERVER_IP}"
-//  "REALITY_PUBLIC":"${REALITY_PUBLIC}"
-//  "SERVER":"${SERVER}"
+//  "SERVER_IP": "${SERVER_IP}"
+//  "REALITY_PUBLIC": "${REALITY_PUBLIC}"
+//  "SERVER": "${SERVER}"
 {
-    "log":{
-        "disabled":false,
-        "level":"error",
-        "output":"$WORK_DIR/logs/box.log",
-        "timestamp":true
+    "log": {
+        "disabled": false,
+        "level": "error",
+        "output": "$WORK_DIR/logs/box.log",
+        "timestamp": true
     },
     "experimental": {
         "cache_file": {
@@ -956,13 +944,13 @@ EOF
             "path": "$WORK_DIR/cache.db"
         }
     },
-    "dns":{
-        "servers":[
+    "dns": {
+        "servers": [
             {
-                "type":"local"
+                "type": "local"
             }
         ],
-        "strategy":"$STRATEGY"
+        "strategy": "$STRATEGY"
     },
     "ntp": {
         "enabled": true,
@@ -970,120 +958,120 @@ EOF
         "server_port": 123,
         "interval": "60m"
     },
-    "inbounds":[
+    "inbounds": [
         {
-            "type":"vless",
-            "tag":"${NODE_NAME} vless-reality-vision",
-            "listen":"::",
-            "listen_port":${REALITY_PORT},
-            "users":[
+            "type": "vless",
+            "tag": "${NODE_NAME} vless-reality-vision",
+            "listen": "::",
+            "listen_port": ${REALITY_PORT},
+            "users": [
                 {
-                    "uuid":"${UUID}",
-                    "flow":"xtls-rprx-vision"
+                    "uuid": "${UUID}",
+                    "flow": "xtls-rprx-vision"
                 }
             ],
-            "tls":{
-                "enabled":true,
-                "server_name":"${TLS_SERVER}",
-                "reality":{
-                    "enabled":true,
-                    "handshake":{
-                        "server":"127.0.0.1",
-                        "server_port":3010
+            "tls": {
+                "enabled": true,
+                "server_name": "${TLS_SERVER}",
+                "reality": {
+                    "enabled": true,
+                    "handshake": {
+                        "server": "${TLS_SERVER}",
+                        "server_port": 443
                     },
-                    "private_key":"${REALITY_PRIVATE}",
-                    "short_id":[
+                    "private_key": "${REALITY_PRIVATE}",
+                    "short_id": [
                         ""
                     ]
                 }
             },
-            "multiplex":{
-                "enabled":false,
-                "padding":false,
-                "brutal":{
-                    "enabled":false,
-                    "up_mbps":1000,
-                    "down_mbps":1000
+            "multiplex": {
+                "enabled": false,
+                "padding": false,
+                "brutal": {
+                    "enabled": false,
+                    "up_mbps": 1000,
+                    "down_mbps": 1000
                 }
             }
         },
         {
-            "type":"vless",
-            "tag":"vless-in",
-            "listen":"127.0.0.1",
-            "listen_port":3011,
-            "transport":{
-                "type":"ws",
-                "path":"/${WS_PATH}-vl",
-                "max_early_data":2560,
-                "early_data_header_name":"Sec-WebSocket-Protocol"
+            "type": "vless",
+            "tag": "vless-in",
+            "listen": "127.0.0.1",
+            "listen_port": 3011,
+            "transport": {
+                "type": "ws",
+                "path": "/${WS_PATH}-vl",
+                "max_early_data": 2560,
+                "early_data_header_name": "Sec-WebSocket-Protocol"
             },
-            "multiplex":{
-                "enabled":true,
-                "padding":true,
-                "brutal":{
-                    "enabled":${IS_BRUTAL},
-                    "up_mbps":1000,
-                    "down_mbps":1000
+            "multiplex": {
+                "enabled": true,
+                "padding": true,
+                "brutal": {
+                    "enabled": ${IS_BRUTAL},
+                    "up_mbps": 1000,
+                    "down_mbps": 1000
                 }
             },
-            "users":[
+            "users": [
                 {
-                    "uuid":"${UUID}",
-                    "flow":""
+                    "uuid": "${UUID}",
+                    "flow": ""
                 }
             ]
         },
         {
-            "type":"vmess",
-            "tag":"vmess-in",
-            "listen":"127.0.0.1",
-            "listen_port":3012,
-            "transport":{
-                "type":"ws",
-                "path":"/${WS_PATH}-vm",
-                "max_early_data":2560,
-                "early_data_header_name":"Sec-WebSocket-Protocol"
+            "type": "vmess",
+            "tag": "vmess-in",
+            "listen": "127.0.0.1",
+            "listen_port": 3012,
+            "transport": {
+                "type": "ws",
+                "path": "/${WS_PATH}-vm",
+                "max_early_data": 2560,
+                "early_data_header_name": "Sec-WebSocket-Protocol"
             },
-            "multiplex":{
-                "enabled":true,
-                "padding":true,
-                "brutal":{
-                    "enabled":${IS_BRUTAL},
-                    "up_mbps":1000,
-                    "down_mbps":1000
+            "multiplex": {
+                "enabled": true,
+                "padding": true,
+                "brutal": {
+                    "enabled": ${IS_BRUTAL},
+                    "up_mbps": 1000,
+                    "down_mbps": 1000
                 }
             },
-            "users":[
+            "users": [
                 {
-                    "uuid":"${UUID}",
-                    "alterId":0
+                    "uuid": "${UUID}",
+                    "alterId": 0
                 }
             ]
         },
         {
-            "type":"trojan",
-            "tag":"trojan-in",
-            "listen":"127.0.0.1",
-            "listen_port":3013,
-            "transport":{
-                "type":"ws",
-                "path":"/${WS_PATH}-tr",
-                "max_early_data":2560,
-                "early_data_header_name":"Sec-WebSocket-Protocol"
+            "type": "trojan",
+            "tag": "trojan-in",
+            "listen": "127.0.0.1",
+            "listen_port": 3013,
+            "transport": {
+                "type": "ws",
+                "path": "/${WS_PATH}-tr",
+                "max_early_data": 2560,
+                "early_data_header_name": "Sec-WebSocket-Protocol"
             },
-            "multiplex":{
-                "enabled":true,
-                "padding":true,
-                "brutal":{
-                    "enabled":${IS_BRUTAL},
-                    "up_mbps":1000,
-                    "down_mbps":1000
+            "multiplex": {
+                "enabled": true,
+                "padding": true,
+                "brutal": {
+                    "enabled": ${IS_BRUTAL},
+                    "up_mbps": 1000,
+                    "down_mbps": 1000
                 }
             },
-            "users":[
+            "users": [
                 {
-                    "password":"${UUID}"
+                    "password": "${UUID}"
                 }
             ]
         }
@@ -1092,26 +1080,26 @@ EOF
 EOF
   cat > $WORK_DIR/sing-box-conf/outbound.json << EOF
 {
-    "endpoints":[
+    "endpoints": [
         {
-            "type":"wireguard",
-            "tag":"warp-ep",
-            "mtu":1280,
-            "address":[
+            "type": "wireguard",
+            "tag": "warp-ep",
+            "mtu": 1280,
+            "address": [
                 "172.16.0.2/32",
                 "2606:4700:110:8a36:df92:102a:9602:fa18/128"
             ],
-            "private_key":"YFYOAdbw1bKTHlNNi+aEjBM3BO7unuFC5rOkMRAz9XY=",
+            "private_key": "YFYOAdbw1bKTHlNNi+aEjBM3BO7unuFC5rOkMRAz9XY=",
             "peers": [
               {
                 "address": "engage.cloudflareclient.com",
-                "port":2408,
-                "public_key":"bmXOC+F1FxEMF9dyiK2H5/1SUtzH0JuVo51h2wPfgyo=",
+                "port": 2408,
+                "public_key": "bmXOC+F1FxEMF9dyiK2H5/1SUtzH0JuVo51h2wPfgyo=",
                 "allowed_ips": [
                   "0.0.0.0/0",
                   "::/0"
                 ],
-                "reserved":[
+                "reserved": [
                     78,
                     135,
                     76
@@ -1120,47 +1108,47 @@ EOF
             ]
         }
     ],
-    "outbounds":[
+    "outbounds": [
         {
-            "type":"direct",
-            "tag":"direct"
+            "type": "direct",
+            "tag": "direct"
         }
     ],
     "route":{
-        "rule_set":[
+        "rule_set": [
             {
-                "tag":"geosite-openai",
-                "type":"remote",
-                "format":"binary",
-                "url":"https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-openai.srs"
+                "tag": "geosite-openai",
+                "type": "remote",
+                "format": "binary",
+                "url": "https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-openai.srs"
             }
         ],
-        "rules":[
+        "rules": [
             {
                 "action": "sniff"
             },
             {
                 "action": "resolve",
-                "domain":[
+                "domain": [
                     "api.openai.com"
                 ],
                 "strategy": "prefer_ipv4"
             },
             {
                 "action": "resolve",
-                "rule_set":[
+                "rule_set": [
                     "geosite-openai"
                 ],
                 "strategy": "prefer_ipv6"
             },
             {
-                "domain":[
+                "domain": [
                     "api.openai.com"
                 ],
-                "rule_set":[
+                "rule_set": [
                     "geosite-openai"
                 ],
-                "outbound":"${CHATGPT_OUT}"
+                "outbound": "${CHATGPT_OUT}"
             }
         ]
     }
@@ -1261,7 +1249,7 @@ export_list() {
   TLS_SERVER=${TLS_SERVER:-"$(awk -F '"' '/"server_name"/{print $4}' <<< "$JSON")"}
   SERVER=${SERVER:-"$(awk -F '"' '/"SERVER"/{print $4}' <<< "$JSON")"}
   UUID=${UUID:-"$(awk -F '"' '/"password"/{print $4}' <<< "$JSON")"}
-  WS_PATH=${WS_PATH:-"$(expr "$JSON" : '.*path":"/\(.*\)-vl.*')"}
+  WS_PATH=${WS_PATH:-"$(expr "$JSON" : '.*path":[ ]*"/\(.*\)-vl.*')"}
   NODE_NAME=${NODE_NAME:-"$(sed -n 's/.*tag":"\(.*\) vless-reality-vision.*/\1/gp' <<< "$JSON")"}
 
   # IPv6 时的 IP 处理
@@ -1355,7 +1343,7 @@ $(hint "$(sed "G" <<< "${SHADOWROCKET_SUBSCRIBE}")")
 *******************************************
 ┌────────────────┐
 │                │
-│   $(warning "Clash Meta")   │
+│  $(warning "Clash Verge")   │
 │                │
 └────────────────┘
 ----------------------------
@@ -1566,6 +1554,35 @@ version() {
   fi
 }
 
+# 快速安装的所有预设值
+fast_install_variables() {
+  # 设置为非交互式安装
+  NONINTERACTIVE_INSTALL='noninteractive_install'
+
+  # 快速安装模式下使用自动配置
+  REALITY_PORT=${REALITY_PORT:-$(shuf -i 100-65535 -n 1)}
+  local PORT_USED_COUNT=0
+  while ss -nltup | grep ":$REALITY_PORT" >/dev/null 2>&1; do
+    REALITY_PORT=$(shuf -i 100-65535 -n 1)
+    ((PORT_USED_COUNT++))
+    [ $PORT_USED_COUNT -gt 5 ] && error "\n $(text 3) \n"
+  done
+
+  SERVER=${SERVER:-"${CDN_DOMAIN[0]}"}
+  UUID=${UUID:-$(cat /proc/sys/kernel/random/uuid)}
+  WS_PATH=${WS_PATH:-"$WS_PATH_DEFAULT"}
+
+  # 输入节点名，以系统的 hostname 作为默认
+  if [ -x "$(type -p hostname)" ]; then
+    NODE_NAME_DEFAULT="$(hostname)"
+  elif [ -s /etc/hostname ]; then
+    NODE_NAME_DEFAULT="$(cat /etc/hostname)"
+  else
+    NODE_NAME_DEFAULT="sba"
+  fi
+  NODE_NAME=${NODE_NAME:-"$NODE_NAME_DEFAULT"}
+}
+
 # 判断当前 sba 的运行状态，并对应的给菜单和动作赋值
 menu_setting() {
   if [[ ${STATUS[*]} =~ $(text 27)|$(text 28) ]]; then
@@ -1634,17 +1651,19 @@ menu_setting() {
     ACTION[10]() { bash <(wget --no-check-certificate -qO- https://tcp.hy2.sh/); exit; }
 
   else
-    OPTION[1]="1.  $(text 34)"
-    OPTION[2]="2.  $(text 32)"
-    OPTION[3]="3.  $(text 51)"
-    OPTION[4]="4.  $(text 58)"
-    OPTION[5]="5.  $(text 64)"
+    OPTION[1]="1.  $(text 74)"
+    OPTION[2]="2.  $(text 34)"
+    OPTION[3]="3.  $(text 32)"
+    OPTION[4]="4.  $(text 51)"
+    OPTION[5]="5.  $(text 58)"
+    OPTION[6]="6.  $(text 64)"
 
-    ACTION[1]() { install_sba; export_list; create_shortcut; exit; }
-    ACTION[2]() { bash <(wget --no-check-certificate -qO- ${GH_PROXY}https://raw.githubusercontent.com/ylx2016/Linux-NetSpeed/master/tcp.sh); exit; }
-    ACTION[3]() { bash <(wget --no-check-certificate -qO- ${GH_PROXY}https://raw.githubusercontent.com/fscarmen/sing-box/main/sing-box.sh) -$L; exit; }
-    ACTION[4]() { bash <(wget --no-check-certificate -qO- ${GH_PROXY}https://raw.githubusercontent.com/fscarmen/argox/main/argox.sh) -$L; exit; }
-    ACTION[5]() { bash <(wget --no-check-certificate -qO- https://tcp.hy2.sh/); exit; }
+    ACTION[1]() { fast_install_variables; install_sba; export_list; create_shortcut; exit;}
+    ACTION[2]() { install_sba; export_list; create_shortcut; exit; }
+    ACTION[3]() { bash <(wget --no-check-certificate -qO- ${GH_PROXY}https://raw.githubusercontent.com/ylx2016/Linux-NetSpeed/master/tcp.sh); exit; }
+    ACTION[4]() { bash <(wget --no-check-certificate -qO- ${GH_PROXY}https://raw.githubusercontent.com/fscarmen/sing-box/main/sing-box.sh) -$L; exit; }
+    ACTION[5]() { bash <(wget --no-check-certificate -qO- ${GH_PROXY}https://raw.githubusercontent.com/fscarmen/argox/main/argox.sh) -$L; exit; }
+    ACTION[6]() { bash <(wget --no-check-certificate -qO- https://tcp.hy2.sh/); exit; }
   fi
 
   [ "${#OPTION[@]}" -ge '10' ] && OPTION[0]="0 .  $(text 35)" || OPTION[0]="0.  $(text 35)"
@@ -1676,10 +1695,10 @@ check_cdn
 # statistics_of_run-times update sba.sh 2>/dev/null
 
 # 传参
-[[ "${*,,}" =~ '-e' ]] && L=E
-[[ "${*,,}" =~ '-c' ]] && L=C
+[[ "${*,,}" =~ '-e'|'-k' ]] && L=E
+[[ "${*,,}" =~ '-c'|'-b'|'-l' ]] && L=C
 
-while getopts ":AaSsUuNnTtDdVvBbFf:" OPTNAME; do
+while getopts ":AaSsUuNnTtDdVvBbKkLlF:f:" OPTNAME; do
   case "${OPTNAME,,}" in
     a ) select_language; check_system_info; check_install
       case "${STATUS[0]}" in
@@ -1710,6 +1729,7 @@ while getopts ":AaSsUuNnTtDdVvBbFf:" OPTNAME; do
     v ) select_language; check_arch; version; exit 0;;
     b ) select_language; bash <(wget --no-check-certificate -qO- "${GH_PROXY}https://raw.githubusercontent.com/ylx2016/Linux-NetSpeed/master/tcp.sh"); exit ;;
     f ) NONINTERACTIVE_INSTALL='noninteractive_install'; VARIABLE_FILE=$OPTARG; . $VARIABLE_FILE ;;
+    k|l ) fast_install_variables ;;
   esac
 done
 
@@ -1723,4 +1743,4 @@ check_system_ip
 check_install
 menu_setting
 
-[ -z "$VARIABLE_FILE" ] && menu || ACTION[1]
+[ "$NONINTERACTIVE_INSTALL" = 'noninteractive_install' ] && ACTION[2] || menu

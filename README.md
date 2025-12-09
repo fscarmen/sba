@@ -6,7 +6,8 @@
 
 - [更新信息](README.md#更新信息)
 - [项目特点](README.md#项目特点)
-- [sba for VPS 运行脚本](README.md#sba-for-vps-运行脚本)
+- [交互式运行脚本](README.md#交互式运行脚本)
+- [无交互极速安装](README.md#无交互极速安装)
 - [Argo Json 的获取](README.md#argo-json-的获取)
 - [Argo Token 的获取](README.md#argo-token-的获取)
 - [主体目录文件及说明](README.md#主体目录文件及说明)
@@ -14,16 +15,18 @@
 
 * * *
 ## 更新信息
+2025.12.09 v1.1.6 Quick Install Mode: Added a one-click installation feature that auto-fills all parameters, simplifying the deployment process. Chinese users can use -l or -L; English users can use -k or -K. Case-insensitive support makes operations more flexible; 极速安装模式：新增一键安装功能，所有参数自动填充，简化部署流程。中文用户使用 -l 或 -L，英文用户使用 -k 或 -K，大小写均支持，操作更灵活
+
 2025.11.10 v1.1.5 Replace multiplex with xtls-rprx-vision flow control in reality configuration; 在 reality 配置中将多路复用 multiplex 替换为 xtls-rprx-vision 流控
 
 2025.04.26 v1.1.4 1. Added the ability to change CDNs online using [sb -d]; 2. Use OpenRC on Alpine to replace systemctl (Python3-compatible version); 3. Handle CentOS firewall port management; 4. Change GitHub proxy; 5. Optimize code; 1. 新增使用 [sb -d] 在线更换 CDN 功能; 2. 在 Alpine 系统中使用 OpenRC 取代兼容 Python3 的 systemctl 实现; 3. 处理 CentOS 防火墙端口管理; 4. 更换 GitHub 代理; 5. 优化代码
-
-2025.03.25 v1.1.3 Compatible with Sing-box 1.12.0-alpha.18+; 适配 Sing-box 1.12.0-alpha.18+
 
 <details>
     <summary>历史更新 history（点击即可展开或收起）</summary>
 <br>
 
+>2025.03.25 v1.1.3 Compatible with Sing-box 1.12.0-alpha.18+; 适配 Sing-box 1.12.0-alpha.18+
+>
 >2025.01.28 v1.1.2 1. Add server-side time synchronization configuration; 2. Replace some CDNs; 1. 添加服务端时间同步配置; 2. 替换某些 CDN
 >
 >2024.12.20 v1.1.1 Refactored the chatGPT detection method based on lmc999's detection and unlocking script; 根据 lmc999 的检测解锁脚本，重构了检测 chatGPT 方法
@@ -74,7 +77,7 @@
 * 极速安装，即可交互式安装，也可像 docker compose 一样的非交互式安装，提前把所有的参数放到一个配置文件，全程不到5秒。
 
 
-## sba for VPS 运行脚本:
+## 交互式运行脚本:
 
 ```
 bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/sba/main/sba.sh)
@@ -84,6 +87,8 @@ bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/sba/main/sba.sh)
   | -----------| ------ |
   | -c         | Chinese 中文 |
   | -e         | English 英文 |
+  | -l         |	Quick deploy (Chinese version) 使用中文快速安装 |
+  | -k         |	Quick deploy (English version) 使用英文快速安装 |
   | -a         | Argo on-off Argo 开关 |
   | -s         | Sing-box on-off Sing-box 开关 |
   | -f         | Variable file，refer to REPO file "config" 参数文件，可参照项目的文件 config |
@@ -94,6 +99,17 @@ bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/sba/main/sba.sh)
   | -b         | Upgrade kernel, turn on BBR, change Linux system 升级内核、安装BBR、DD脚本 |
   | -v         | Sync Argo Sing-box to the newest 同步 Argo Sing-box 到最新版本 |
 
+## 无交互极速安装:
+
+### 中文
+```
+bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/sba/main/sba.sh) -l
+```
+
+### 英文
+```
+bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/sba/main/sba.sh) -k
+```
 
 ## Argo Json 的获取
 
@@ -108,10 +124,11 @@ bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/sba/main/sba.sh)
 
 详细教程: [群晖套件：Cloudflare Tunnel 内网穿透中文教程 支持DSM6、7](https://imnks.com/5984.html)
 
-<img width="1510" alt="image" src="https://github.com/fscarmen/sba/assets/62703343/bb2d9c43-3585-4abd-a35b-9cfd7404c87c">
+<img width="2836" height="1050" alt="image" src="https://github.com/user-attachments/assets/f427a7f8-1642-4076-91db-bdb827ca644f" />
 
-<img width="1625" alt="image" src="https://github.com/fscarmen/sba/assets/62703343/4d18953a-4b9d-452e-b817-b4f0830a631c">
+<img width="2724" height="1318" alt="image" src="https://github.com/user-attachments/assets/0c5e1394-777e-4453-b9b7-c122cdcda086" />
 
+<img width="1392" height="648" alt="image" src="https://github.com/user-attachments/assets/b9fdc0c9-189e-49e2-a624-5a7dfbcd83ac" />
 
 ## 主体目录文件及说明
 
