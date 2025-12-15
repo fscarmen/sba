@@ -10,11 +10,15 @@
 - [无交互极速安装](README.md#无交互极速安装)
 - [Argo Json 的获取](README.md#argo-json-的获取)
 - [Argo Token 的获取](README.md#argo-token-的获取)
+- [使用 Cloudflare API 自动创建 Argo](README.md#使用-cloudflare-api-自动创建-argo)
 - [主体目录文件及说明](README.md#主体目录文件及说明)
 - [免责声明](README.md#免责声明)
+- [开源证书](README.md#开源证书)
 
 * * *
 ## 更新信息
+2025.12.11 v1.1.7 Argo tunnel creation via API --- Automatically completed: Create tunnel > DNS configuration > Origin settings. Thanks to [zmlu] for providing the method: https://raw.githubusercontent.com/zmlu/sba/main/tunnel.sh; Argo 隧道新增通过 API 创建 --- 自动完成：创建隧道 > DNS 配置 > 回源设置。感谢热心网友 [zmlu] 提供的方法: https://raw.githubusercontent.com/zmlu/sba/main/tunnel.sh
+
 2025.12.09 v1.1.6 Quick Install Mode: Added a one-click installation feature that auto-fills all parameters, simplifying the deployment process. Chinese users can use -l or -L; English users can use -k or -K. Case-insensitive support makes operations more flexible; 极速安装模式：新增一键安装功能，所有参数自动填充，简化部署流程。中文用户使用 -l 或 -L，英文用户使用 -k 或 -K，大小写均支持，操作更灵活
 
 2025.11.10 v1.1.5 Replace multiplex with xtls-rprx-vision flow control in reality configuration; 在 reality 配置中将多路复用 multiplex 替换为 xtls-rprx-vision 流控
@@ -87,8 +91,8 @@ bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/sba/main/sba.sh)
   | -----------| ------ |
   | -c         | Chinese 中文 |
   | -e         | English 英文 |
-  | -l         |	Quick deploy (Chinese version) 使用中文快速安装 |
-  | -k         |	Quick deploy (English version) 使用英文快速安装 |
+  | -l         | Quick deploy (Chinese version) 使用中文快速安装 |
+  | -k         | Quick deploy (English version) 使用英文快速安装 |
   | -a         | Argo on-off Argo 开关 |
   | -s         | Sing-box on-off Sing-box 开关 |
   | -f         | Variable file，refer to REPO file "config" 参数文件，可参照项目的文件 config |
@@ -130,6 +134,24 @@ bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/sba/main/sba.sh) -k
 
 <img width="1392" height="648" alt="image" src="https://github.com/user-attachments/assets/b9fdc0c9-189e-49e2-a624-5a7dfbcd83ac" />
 
+## 使用 Cloudflare API 自动创建 Argo
+
+### API Token 最小权限要求:
+1. Account - Cloudflare One Connectors: cloudflared - Edit
+2. Zone - DNS - Edit
+
+### 创建 API Token 步骤:
+1. 访问 https://dash.cloudflare.com/profile/api-tokens
+2. 点击 "Create Token"
+3. 选择 "Create Custom Token"
+4. 添加以下权限:
+   - Account > Cloudflare One Connectors: cloudflared > Edit
+   - Zone > DNS > Edit
+5. Account Resources: Include > 所需账户
+6. Zone Resources: Include > 特定Zone > 所需Zone
+
+<img width="1336" height="691" alt="image" src="https://github.com/user-attachments/assets/e9c6d946-02ed-48fc-81c4-0fe374461eca" />
+
 ## 主体目录文件及说明
 
 ```
@@ -169,3 +191,8 @@ bash <(wget -qO- https://raw.githubusercontent.com/fscarmen/sba/main/sba.sh) -k
 ## 免责声明:
 * 本程序仅供学习了解, 非盈利目的，请于下载后 24 小时内删除, 不得用作任何商业用途, 文字、数据及图片均有所属版权, 如转载须注明来源。
 * 使用本程序必循遵守部署免责声明。使用本程序必循遵守部署服务器所在地、所在国家和用户所在国家的法律法规, 程序作者不对使用者任何不当行为负责。
+
+## 开源证书
+* 本项目严格遵守 GNU GPL v3 许可证 [LICENSE](LICENSE)。
+* 任何形式的复制、分发、修改或衍生使用，必须完整保留原版权声明、许可证文本，并以相同许可证开源发布。违反此条款（如闭源使用、商业独占或未开源修改版）将被视为抄袭，作者保留追究法律责任的权利。
+* 鼓励社区贡献，但请通过 Pull Request 提交。
