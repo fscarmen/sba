@@ -3,8 +3,8 @@
 # 当前脚本版本号
 VERSION='1.1.7 (2025.12.11)'
 
-# 各变量默认值
-GITHUB_PROXY=('https://v6.gh-proxy.org/' 'https://gh-proxy.com/' 'https://hub.glowp.xyz/' 'https://proxy.vvvv.ee/')
+# 各变量默认值，Github 反代加速代理，第一个为空相当于直连
+GITHUB_PROXY=('' 'https://v6.gh-proxy.org/' 'https://gh-proxy.com/' 'https://hub.glowp.xyz/' 'https://proxy.vvvv.ee/' 'https://ghproxy.lvedong.eu.org/')
 WS_PATH_DEFAULT='sba'
 WORK_DIR='/etc/sba'
 TEMP_DIR='/tmp/sba'
@@ -13,7 +13,7 @@ CDN_DOMAIN=("skk.moe" "ip.sb" "time.is" "cfip.xxxxxxxx.tk" "bestcf.top" "cdn.202
 SUBSCRIBE_TEMPLATE="https://raw.githubusercontent.com/fscarmen/client_template/main"
 NGINX_PORT='3010'
 METRICS_PORT='3014'
-DEFAULT_NEWEST_VERSION='1.13.0-alpha.27'
+DEFAULT_NEWEST_VERSION='1.13.0-alpha.31'
 
 export DEBIAN_FRONTEND=noninteractive
 
@@ -204,19 +204,11 @@ text() { grep -q '\$' <<< "${E[$*]}" && eval echo "\$(eval echo "\${${L}[$*]}")"
 
 # 检测是否需要启用 Github CDN，如能直接连通，则不使用
 check_cdn() {
-  # 首先测试默认连接（不使用代理）
-  local DIRECT_STATUS_CODE=$(wget --server-response --spider --quiet --timeout=3 --tries=1 https://api.github.com/repos/SagerNet/sing-box/releases 2>&1 | grep "HTTP/" | awk '{print $2}')
-
-  if [ "$DIRECT_STATUS_CODE" != "200" ]; then
-    # 如果直连失败，则逐一测试各github proxy
-    for PROXY_URL in "${GITHUB_PROXY[@]}"; do
-      local PROXY_STATUS_CODE=$(wget --server-response --spider --quiet --timeout=3 --tries=1 ${PROXY_URL}https://api.github.com/repos/SagerNet/sing-box/releases 2>&1 | grep "HTTP/" | awk '{print $2}')
-      [ "$PROXY_STATUS_CODE" = "200" ] && GH_PROXY="$PROXY_URL" && break
-    done
-  else
-    # 直连成功，不使用代理
-    unset GH_PROXY 
-  fi
+  # GITHUB_PROXY 数组第一个元素为空，相当于直连
+  for PROXY_URL in "${GITHUB_PROXY[@]}"; do
+    local PROXY_STATUS_CODE=$(wget --server-response --spider --quiet --timeout=3 --tries=1 ${PROXY_URL}https://api.github.com/repos/SagerNet/sing-box/releases 2>&1 | awk '/HTTP\//{last_field = $2} END {print last_field}')
+    [ "$PROXY_STATUS_CODE" = "200" ] && GH_PROXY="$PROXY_URL" && break
+  done
 }
 
 # 创建 Argo Tunnel API
@@ -471,15 +463,17 @@ check_root() {
 
 # 检测处理器架构
 check_arch() {
+  [ "$SYSTEM" = 'Alpine' ] && local IS_MUSL='-musl'
+
   case $(uname -m) in
     aarch64|arm64 )
-      ARGO_ARCH=arm64; SING_BOX_ARCH=arm64; JQ_ARCH=arm64; QRENCODE_ARCH=arm64
+      ARGO_ARCH=arm64; SING_BOX_ARCH=arm64${IS_MUSL}; JQ_ARCH=arm64; QRENCODE_ARCH=arm64
       ;;
     x86_64|amd64 )
-      ARGO_ARCH=amd64; SING_BOX_ARCH=amd64; JQ_ARCH=amd64; QRENCODE_ARCH=amd64
+      ARGO_ARCH=amd64; SING_BOX_ARCH=amd64${IS_MUSL}; JQ_ARCH=amd64; QRENCODE_ARCH=amd64
       ;;
     armv7l )
-      ARGO_ARCH=arm; SING_BOX_ARCH=armv7; JQ_ARCH=armhf; QRENCODE_ARCH=arm
+      ARGO_ARCH=arm; SING_BOX_ARCH=armv7${IS_MUSL}; JQ_ARCH=armhf; QRENCODE_ARCH=arm
       ;;
     * )
       error " $(text 25) "
@@ -523,8 +517,8 @@ cmd_systemctl() {
   }
 
   nginx_stop() {
-    local NGINX_PID=$(ps -ef | awk -v work_dir="$WORK_DIR" '$0 ~ "nginx -c " work_dir "/nginx.conf" {print $2; exit}')
-    ss -nltp | sed -n "/pid=$NGINX_PID,/ s/,/ /gp" | grep -oP 'pid=\K\S+' | sort -u | xargs kill -9 >/dev/null 2>&1
+    local NGINX_PID=$(ps -eo pid,args | awk -v work_dir="$WORK_DIR" '$0~(work_dir"/nginx.conf"){print $1;exit}')
+    ss -nltp | awk -v pid="$NGINX_PID" '$0 ~ "pid=" pid "," {sub(/.*pid=/, ""); sub(/,.*/, ""); print}' | sort -u | xargs kill -9 >/dev/null 2>&1
   }
 
   [ -s $WORK_DIR/nginx.conf ] && local IS_NGINX=is_nginx || local IS_NGINX=no_nginx
@@ -1051,37 +1045,64 @@ install_sba() {
 
     cat > ${ARGO_DAEMON_FILE} << EOF
 #!/sbin/openrc-run
-
 name="argo"
 description="Cloudflare Tunnel"
-command="${COMMAND}"
-command_args="${ARGS}"
+command="${WORK_DIR}/cloudflared tunnel"
+command_args="--edge-ip-version auto --no-autoupdate --metrics 0.0.0.0:3014 --url http://localhost:3010"
 pidfile="/var/run/\${RC_SVCNAME}.pid"
 command_background="yes"
-output_log="$WORK_DIR/argo.log"
-error_log="$WORK_DIR/argo.log"
-
+output_log="${WORK_DIR}/argo.log"
+error_log="${WORK_DIR}/argo.log"
 depend() {
     need net
     after net
 }
-
 start_pre() {
     # 确保日志目录存在
-    mkdir -p $WORK_DIR
-
+    mkdir -p ${WORK_DIR}
+    chmod 755 ${WORK_DIR}  # 权限修复
+    # 清理残留 PID，避免 start 警告
+    rm -f \$pidfile
     # 如果需要启动 nginx
-    if [ -s $WORK_DIR/nginx.conf ]; then
-        $(type -p nginx) -c $WORK_DIR/nginx.conf
+    if [ -s ${WORK_DIR}/nginx.conf ]; then
+        /usr/sbin/nginx -t -c ${WORK_DIR}/nginx.conf >/dev/null 2>&1 || eerror "nginx config test failed"
+        /usr/sbin/nginx -c ${WORK_DIR}/nginx.conf
     fi
 }
-
+stop() {
+    ebegin "Stopping \${RC_SVCNAME}"
+    # 先尝试优雅停止主进程（cloudflared）
+    start-stop-daemon --stop --quiet --pidfile \$pidfile --retry 5
+    local RETVAL=\$?
+    # 如果失败，强制杀匹配进程（用 ps + awk，避免 pgrep）
+    if [ \$RETVAL -ne 0 ]; then
+        local CLOUDFLARE_PIDS=\$(ps -eo pid,args | awk -v work_dir="${WORK_DIR}" 'NR > 1 && \$0 ~ work_dir "/cloudflared" {print \$1; exit}')
+        if [ -n "\$CLOUDFLARE_PIDS" ]; then
+            for pid in \$CLOUDFLARE_PIDS; do
+                kill \$pid 2>/dev/null || kill -KILL \$pid 2>/dev/null
+            done
+        fi
+    fi
+    # 清理 PID 文件
+    rm -f \$pidfile
+    eend \$RETVAL "Failed to stop \${RC_SVCNAME}"
+    # 运行 post 清理
+    stop_post
+}
 stop_post() {
     # 停止服务时检查并关闭相关的 nginx 进程
-    if [ -s $WORK_DIR/nginx.conf ]; then
-        # 查找使用我们配置文件的 nginx 进程并停止它
-        local NGINX_PIDS=\$(ps -ef | awk -v work_dir="$WORK_DIR" '{if (\$0 ~ "nginx.*" work_dir "/nginx.conf") print \$1}')
-        [ -n "\$NGINX_PIDS" ] && echo " * Stopping nginx processes: \$NGINX_PIDS" && kill -15 \$NGINX_PIDS 2>/dev/null
+    if [ -s ${WORK_DIR}/nginx.conf ]; then
+        # 优先优雅停止
+        /usr/sbin/nginx -s quit -c ${WORK_DIR}/nginx.conf 2>/dev/null
+        sleep 2
+        # fallback: 查找并杀
+        local NGINX_PIDS=\$(ps -eo pid,args | awk -v work_dir="${WORK_DIR}" '\$0~(work_dir"/nginx.conf"){print \$1;exit}')
+        if [ -n "\$NGINX_PIDS" ]; then
+            echo " * Stopping nginx processes: \$NGINX_PIDS"
+            for pid in \$NGINX_PIDS; do
+                kill -15 \$pid 2>/dev/null || kill -KILL \$pid 2>/dev/null
+            done
+        fi
     fi
 }
 EOF
@@ -1114,18 +1135,49 @@ WantedBy=multi-user.target"
     cat > ${SINGBOX_DAEMON_FILE} << EOF
 #!/sbin/openrc-run
 
-name="Sing-Box"
+name="sing-box"
 description="Sing-Box Service"
-command="$WORK_DIR/sing-box"
-command_args="run -C $WORK_DIR/sing-box-conf"
-command_background=true
+command="${WORK_DIR}/sing-box"
+command_args="run -C ${WORK_DIR}/sing-box-conf"
 pidfile="/run/sing-box.pid"
-output_log="/var/log/sing-box.log"
-error_log="/var/log/sing-box.err"
+command_background="yes"
+output_log="${WORK_DIR}/sing-box.log"
+error_log="${WORK_DIR}/sing-box.log"
 
 depend() {
     need net
     after firewall
+}
+
+start_pre() {
+    # 确保工作目录存在并修复权限
+    mkdir -p ${WORK_DIR}
+    chmod 755 ${WORK_DIR}
+
+    # 清理残留 PID 文件，防止 OpenRC 误判状态
+    rm -f "\$pidfile"
+}
+
+stop() {
+    ebegin "Stopping \${RC_SVCNAME}"
+
+    # 1. 尝试使用标准信号优雅停止
+    start-stop-daemon --stop --quiet --pidfile "\$pidfile" --retry 5
+    local RETVAL=\$?
+
+    # 2. 如果优雅停止失败，强制杀掉相关进程
+    if [ \$RETVAL -ne 0 ]; then
+        local SINGBOX_PIDS=\$(ps -eo pid,args | awk -v work_dir="${WORK_DIR}" 'NR > 1 && \$0 ~ work_dir "/sing-box run" {print \$1; exit}')
+        if [ -n "\$SINGBOX_PIDS" ]; then
+            for pid in \$SINGBOX_PIDS; do
+                kill -9 "\$pid" 2>/dev/null
+            done
+        fi
+    fi
+
+    # 清理 PID 文件
+    rm -f "\$pidfile"
+    eend \$RETVAL "Failed to stop \${RC_SVCNAME}"
 }
 EOF
     chmod +x ${SINGBOX_DAEMON_FILE}
@@ -1747,7 +1799,7 @@ uninstall() {
     [ -s ${ARGO_DAEMON_FILE} ] && cmd_systemctl disable argo &>/dev/null
     [ -s ${SINGBOX_DAEMON_FILE} ] && cmd_systemctl disable sing-box &>/dev/null
     sleep 1
-    [[ -s ${WORK_DIR}/nginx.conf && $(ps -ef | grep 'nginx' | wc -l) -le 1 ]] && reading "\n $(text 59) " REMOVE_NGINX
+    [[ -s ${WORK_DIR}/nginx.conf && "$(ps -ef | grep -c '[n]ginx')" = 0 ]] && reading "\n $(text 59) " REMOVE_NGINX
     [ "${REMOVE_NGINX,,}" = 'y' ] && ${PACKAGE_UNINSTALL[int]} nginx >/dev/null 2>&1
     [ "$SYSTEM" = 'CentOS' ] && firewall_configuration close
     rm -rf ${WORK_DIR} ${TEMP_DIR} ${ARGO_DAEMON_FILE} ${SINGBOX_DAEMON_FILE} /usr/bin/sb
@@ -1824,31 +1876,29 @@ fast_install_variables() {
 
 # 判断当前 sba 的运行状态，并对应的给菜单和动作赋值
 menu_setting() {
+  local PS_LIST=$(ps -eo pid,args | grep -E "$WORK_DIR.*([s]ing-box|[c]loudflared|[n]ginx)" | sed 's/^[ ]\+//g')
   if [[ ${STATUS[*]} =~ $(text 27)|$(text 28) ]]; then
     if [ -s $WORK_DIR/cloudflared ]; then
       ARGO_VERSION=$($WORK_DIR/cloudflared -v | awk '{print $3}' | sed "s@^@Version: &@g")
-      grep -q '^Alpine$' <<< "$SYSTEM" && local PID_COLUMN='1' || local PID_COLUMN='2'
-      local PID=$(ps -ef | awk -v work_dir="${WORK_DIR}" -v col="$PID_COLUMN" '$0 ~ work_dir".*cloudflared" && !/grep/ {print $col; exit}')
-      local REALTIME_METRICS_PORT=$(ss -nltp | awk -v pid=$PID '$0 ~ "pid="pid"," {split($4, a, ":"); print a[length(a)]}')
-      ss -nltp | grep -q "cloudflared.*pid=${PID}," && ARGO_CHECKHEALTH="$(text 46): $(wget -qO- http://localhost:${REALTIME_METRICS_PORT}/healthcheck | sed "s/OK/$(text 37)/")"
+      local ARGO_PID=$(awk '/cloudflared/{print $1}' <<< "$PS_LIST")
+      local REALTIME_METRICS_PORT=$(ss -nltp | awk -v pid=${ARGO_PID} '$0 ~ "pid="pid"," {split($4, a, ":"); print a[length(a)]}')
+      ss -nltp | grep -q "cloudflared.*pid=${ARGO_PID}," && ARGO_CHECKHEALTH="$(text 46): $(wget -qO- http://localhost:${REALTIME_METRICS_PORT}/healthcheck | sed "s/OK/$(text 37)/")"
     fi
     [ -s $WORK_DIR/sing-box ] && SING_BOX_VERSION=$($WORK_DIR/sing-box version | awk '/version/{print $NF}' | sed "s@^@Version: &@g")
-    [ "$SYSTEM" = 'Alpine' ] && PS_LIST=$(ps -ef) || PS_LIST=$(ps -ef | grep -E 'sing-box|cloudflared|nginx' | awk '{ $1=""; sub(/^ */, ""); print $0 }')
     [ -x "$(type -p nginx)" ] && NGINX_VERSION=$(nginx -v 2>&1 | sed "s#.*/#Version: #")
 
     OPTION[1]="1 .  $(text 29)"
     if [ ${STATUS[0]} = "$(text 28)" ]; then
-      ARGO_PID=$(awk '/\/etc\/sba\/cloudflared/{print $1}' <<< "$PS_LIST")
       [ -n "$ARGO_PID" ] && [ -f "/proc/$ARGO_PID/status" ] && ARGO_MEMORY="$(text 52): $(awk '/VmRSS/{printf "%.1f\n", $2/1024}' /proc/$ARGO_PID/status) MB" || ARGO_MEMORY="$(text 52): N/A"
 
-      NGINX_PID=$(awk '/\/etc\/sba\/nginx/{print $1}' <<< "$PS_LIST")
+      NGINX_PID=$(awk '/nginx/{print $1}' <<< "$PS_LIST")
       [ -n "$NGINX_PID" ] && [ -f "/proc/$NGINX_PID/status" ] && NGINX_MEMORY="$(text 52): $(awk '/VmRSS/{printf "%.1f\n", $2/1024}' /proc/$NGINX_PID/status) MB" || NGINX_MEMORY="$(text 52): N/A"
       OPTION[2]="2 .  $(text 27) Argo (sb -a)"
     else
       OPTION[2]="2 .  $(text 28) Argo (sb -a)"
     fi
     if [ ${STATUS[1]} = "$(text 28)" ]; then
-      SING_BOX_PID=$(awk '/\/etc\/sba\/sing-box.*\/etc\/sba/{print $1}' <<< "$PS_LIST")
+      SING_BOX_PID=$(awk '/sing-box run/{print $1}' <<< "$PS_LIST")
       [ -n "$SING_BOX_PID" ] && [ -f "/proc/$SING_BOX_PID/status" ] && SING_BOX_MEMORY="$(text 52): $(awk '/VmRSS/{printf "%.1f\n", $2/1024}' /proc/$SING_BOX_PID/status) MB" || SING_BOX_MEMORY="$(text 52): N/A"
       OPTION[3]="3 .  $(text 27) Sing-box (sb -s)"
     else
@@ -1967,7 +2017,7 @@ while getopts ":AaSsUuNnTtDdVvBbKkLlF:f:" OPTNAME; do
     n ) select_language; check_system_info; check_brutal; export_list; exit 0 ;;
     t ) select_language; check_system_info; check_brutal; change_argo; exit 0 ;;
     d ) select_language; check_system_info; check_brutal; change_cdn; exit 0 ;;
-    v ) select_language; check_arch; version; exit 0;;
+    v ) select_language; check_system_info; check_arch; version; exit 0;;
     b ) select_language; bash <(wget --no-check-certificate -qO- "${GH_PROXY}https://raw.githubusercontent.com/ylx2016/Linux-NetSpeed/master/tcp.sh"); exit ;;
     f ) NONINTERACTIVE_INSTALL='noninteractive_install'; VARIABLE_FILE=$OPTARG; . $VARIABLE_FILE ;;
     k|l ) fast_install_variables ;;
@@ -1976,8 +2026,8 @@ done
 
 select_language
 check_root
-check_arch
 check_system_info
+check_arch
 check_brutal
 check_dependencies
 check_system_ip
