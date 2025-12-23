@@ -561,15 +561,6 @@ cmd_systemctl() {
 }
 
 check_system_info() {
-  # 判断虚拟化
-  if [ -x "$(type -p systemd-detect-virt)" ]; then
-    VIRT=$(systemd-detect-virt)
-  elif [ -x "$(type -p hostnamectl)" ]; then
-    VIRT=$(hostnamectl | awk '/Virtualization/{print $NF}')
-  elif [ -x "$(type -p virt-what)" ]; then
-    VIRT=$(virt-what | tr '\n' ' ')
-  fi
-
   [ -s /etc/os-release ] && SYS="$(awk -F '"' 'tolower($0) ~ /pretty_name/{print $2}' /etc/os-release)"
   [[ -z "$SYS" && -x "$(type -p hostnamectl)" ]] && SYS="$(hostnamectl | awk -F ': ' 'tolower($0) ~ /operating system/{print $2}')"
   [[ -z "$SYS" && -x "$(type -p lsb_release)" ]] && SYS="$(lsb_release -sd)"
@@ -605,6 +596,20 @@ check_system_info() {
     IS_CENTOS="CentOS$(echo "$SYS" | sed "s/[^0-9.]//g" | cut -d. -f1)"
   elif [ "$SYSTEM" = 'Alpine' ]; then
     ARGO_DAEMON_FILE='/etc/init.d/argo'; SINGBOX_DAEMON_FILE='/etc/init.d/sing-box'; DAEMON_RUN_PATTERN="command_args="
+  fi
+
+  # 判断虚拟化
+  if [ -x "$(type -p systemd-detect-virt)" ]; then
+    VIRT=$(systemd-detect-virt)
+  elif grep -qa container= /proc/1/environ 2>/dev/null; then
+    VIRT=$(tr '\0' '\n' </proc/1/environ | awk -F= '/container=/{print $2; exit}')
+  elif grep -Eq '(lxc|docker|kubepods|containerd)' /proc/1/cgroup 2>/dev/null; then
+    VIRT=$(grep -Eo '(lxc|docker|kubepods|containerd)' /proc/1/cgroup | sed -n 1p)
+  elif [ -x "$(type -p hostnamectl)" ]; then
+    VIRT=$(hostnamectl | awk '/Virtualization/{print $NF}')
+  else
+    [ -x "$(type -p virt-what)" ] && ${PACKAGE_INSTALL[int]} virt-what >/dev/null 2>&1
+    [ -x "$(type -p virt-what)" ] && VIRT=$(virt-what | sed -n 1p) || VIRT=unknown
   fi
 }
 
@@ -817,12 +822,12 @@ sing_box_variable() {
 check_dependencies() {
   # 如果是 Alpine，先升级 wget
   if [ "$SYSTEM" = 'Alpine' ]; then
-    local CHECK_WGET=$(wget 2>&1 | head -n 1)
+    local CHECK_WGET=$(wget 2>&1 | sed -n 1p)
     grep -qi 'busybox' <<< "$CHECK_WGET" && ${PACKAGE_INSTALL[int]} wget >/dev/null 2>&1
 
     # Alpine 系统只检查必要的依赖，不需要 systemctl 和 python3
-    local DEPS_CHECK=("bash" "rc-update" "virt-what")
-    local DEPS_INSTALL=("bash" "openrc" "virt-what")
+    local DEPS_CHECK=("bash" "rc-update")
+    local DEPS_INSTALL=("bash" "openrc")
     for g in "${!DEPS_CHECK[@]}"; do
       [ ! -x "$(type -p ${DEPS_CHECK[g]})" ] && DEPS_ALPINE+=(${DEPS_INSTALL[g]})
     done
@@ -830,7 +835,6 @@ check_dependencies() {
       info "\n $(text 7) $(sed "s/ /,&/g" <<< ${DEPS_ALPINE[@]}) \n"
       ${PACKAGE_UPDATE[int]} >/dev/null 2>&1
       ${PACKAGE_INSTALL[int]} ${DEPS_ALPINE[@]} >/dev/null 2>&1
-      [[ -z "$VIRT" && "${DEPS_ALPINE[@]}" =~ 'virt-what' ]] && VIRT=$(virt-what | tr '\n' ' ')
     fi
   fi
 
@@ -1047,8 +1051,8 @@ install_sba() {
 #!/sbin/openrc-run
 name="argo"
 description="Cloudflare Tunnel"
-command="${WORK_DIR}/cloudflared tunnel"
-command_args="--edge-ip-version auto --no-autoupdate --metrics 0.0.0.0:3014 --url http://localhost:3010"
+command="${COMMAND}"
+command_args="${ARGS}"
 pidfile="/var/run/\${RC_SVCNAME}.pid"
 command_background="yes"
 output_log="${WORK_DIR}/argo.log"
@@ -1692,7 +1696,7 @@ EOF
   cat $WORK_DIR/list
 
   # 显示脚本使用情况数据
-  # statistics_of_run-times get
+  statistics_of_run-times get
 }
 
 # 更换 Argo 隧道类型
@@ -1983,7 +1987,7 @@ menu() {
 }
 
 check_cdn
-# statistics_of_run-times update sba.sh 2>/dev/null
+statistics_of_run-times update sba.sh 2>/dev/null
 
 # 传参
 [[ "${*,,}" =~ '-e'|'-k' ]] && L=E
