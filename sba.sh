@@ -631,15 +631,17 @@ check_system_ip() {
     [ -n "$DEFAULT_LOCAL_IP6" ] && local BIND_ADDRESS6="--bind-address=$DEFAULT_LOCAL_IP6"
   fi
 
-  WAN4=$(wget $BIND_ADDRESS4 -qO- --no-check-certificate --tries=2 --timeout=2 http://api-ipv4.ip.sb)
-  [ -n "$WAN4" ] && local IP4_JSON=$(wget -qO- --no-check-certificate --tries=2 --timeout=10 https://ip.forvps.gq/${WAN4}${IS_CHINESE}) &&
-  COUNTRY4=$(sed -En 's/.*"country":[ ]*"([^"]+)".*/\1/p' <<< "$IP4_JSON") &&
-  ASNORG4=$(sed -En 's/.*"(isp|asn_org)":[ ]*"([^"]+)".*/\2/p' <<< "$IP4_JSON")
+  local IP4_JSON=$(wget $BIND_ADDRESS4 -4 -qO- --no-check-certificate --tries=2 --timeout=2 https://ip.cloudflare.nyc.mn${IS_CHINESE}) &&
+  WAN4=$(awk -F '"' '/"ip"/{print $4}' <<< "$IP4_JSON") &&
+  COUNTRY4=$(awk -F '"' '/"country"/{print $4}' <<< "$IP4_JSON") &&
+  EMOJI4=$(awk -F '"' '/"emoji"/{print $4}' <<< "$IP4_JSON") &&
+  ASNORG4=$(awk -F '"' '/"isp"/{print $4}' <<< "$IP4_JSON")
 
-  WAN6=$(wget $BIND_ADDRESS6 -qO- --no-check-certificate --tries=2 --timeout=2 http://api-ipv6.ip.sb)
-  [ -n "$WAN6" ] && local IP6_JSON=$(wget -qO- --no-check-certificate --tries=2 --timeout=10 https://ip.forvps.gq/${WAN6}${IS_CHINESE}) &&
-  COUNTRY6=$(sed -En 's/.*"country":[ ]*"([^"]+)".*/\1/p' <<< "$IP6_JSON") &&
-  ASNORG6=$(sed -En 's/.*"(isp|asn_org)":[ ]*"([^"]+)".*/\2/p' <<< "$IP6_JSON")
+  local IP6_JSON=$(wget $BIND_ADDRESS6 -6 -qO- --no-check-certificate --tries=2 --timeout=2 https://ip.cloudflare.nyc.mn${IS_CHINESE}) &&
+  WAN6=$(awk -F '"' '/"ip"/{print $4}' <<< "$IP6_JSON") &&
+  COUNTRY6=$(awk -F '"' '/"country"/{print $4}' <<< "$IP6_JSON") &&
+  EMOJI6=$(awk -F '"' '/"emoji"/{print $4}' <<< "$IP6_JSON") &&
+  ASNORG6=$(awk -F '"' '/"isp"/{print $4}' <<< "$IP6_JSON")
 }
 
 # 获取 sing-box 最新版本
@@ -806,16 +808,18 @@ sing_box_variable() {
   WS_PATH=${WS_PATH:-"$WS_PATH_DEFAULT"}
 
   # 输入节点名，以系统的 hostname 作为默认
+  local EMOJI="${EMOJI4:-$EMOJI6}"
+  local EMOJI="${EMOJI}${EMOJI:+ }"
   if [ -z "$NODE_NAME" ]; then
     if [ -x "$(type -p hostname)" ]; then
-      NODE_NAME_DEFAULT="$(hostname)"
+      local NODE_NAME_DEFAULT="${EMOJI}$(hostname)"
     elif [ -s /etc/hostname ]; then
-      NODE_NAME_DEFAULT="$(cat /etc/hostname)"
+      local NODE_NAME_DEFAULT="${EMOJI}$(cat /etc/hostname)"
     else
-      NODE_NAME_DEFAULT="sba"
+      local NODE_NAME_DEFAULT="${EMOJI}sba"
     fi
     ! grep -q 'noninteractive_install' <<< "$NONINTERACTIVE_INSTALL" && reading "\n (7/7) $(text 49) " NODE_NAME
-    NODE_NAME="${NODE_NAME:-"$NODE_NAME_DEFAULT"}"
+    grep -q '^$' <<< "$NODE_NAME" && NODE_NAME="$NODE_NAME_DEFAULT" || NODE_NAME="${EMOJI}${NODE_NAME}"
   fi
 }
 
@@ -1868,14 +1872,17 @@ fast_install_variables() {
   WS_PATH=${WS_PATH:-"$WS_PATH_DEFAULT"}
 
   # 输入节点名，以系统的 hostname 作为默认
+  check_system_ip
+  local EMOJI="${EMOJI4:-$EMOJI6}"
+  local EMOJI="${EMOJI}${EMOJI:+ }"
   if [ -x "$(type -p hostname)" ]; then
-    NODE_NAME_DEFAULT="$(hostname)"
+    local NODE_NAME_DEFAULT="${EMOJI}$(hostname)"
   elif [ -s /etc/hostname ]; then
-    NODE_NAME_DEFAULT="$(cat /etc/hostname)"
+    local NODE_NAME_DEFAULT="${EMOJI}$(cat /etc/hostname)"
   else
-    NODE_NAME_DEFAULT="sba"
+    local NODE_NAME_DEFAULT="${EMOJI}sba"
   fi
-  NODE_NAME=${NODE_NAME:-"$NODE_NAME_DEFAULT"}
+  grep -q '^$' <<< "$NODE_NAME" && NODE_NAME="$NODE_NAME_DEFAULT" || NODE_NAME="${EMOJI}${NODE_NAME}"
 }
 
 # 判断当前 sba 的运行状态，并对应的给菜单和动作赋值
@@ -2034,7 +2041,7 @@ check_system_info
 check_arch
 check_brutal
 check_dependencies
-check_system_ip
+[ "$NONINTERACTIVE_INSTALL" != 'noninteractive_install' ] && check_system_ip
 check_install
 menu_setting
 
