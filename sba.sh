@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # 当前脚本版本号
-VERSION='1.1.7 (2026.04.28)'
+VERSION='1.1.7 (2026.07.28)'
 
 # 各变量默认值，Github 反代加速代理，第一个为空相当于直连
 GITHUB_PROXY=('' 'https://v6.gh-proxy.org/' 'https://gh-proxy.com/' 'https://hub.glowp.xyz/' 'https://proxy.vvvv.ee/' 'https://ghproxy.lvedong.eu.org/')
@@ -171,8 +171,8 @@ E[73]="CDN has been changed from \${CDN_NOW} to \${CDN_NEW}"
 C[73]="CDN 已从 \${CDN_NOW} 更改为 \${CDN_NEW}"
 E[74]="Quick install mode (sb -k)"
 C[74]="极速安装模式 (sb -l)"
-E[75]="Failed to create Tunnel using Cloudflare API"
-C[75]="使用 Cloudflare API 创建 Tunnel 失败"
+E[75]=""
+C[75]=""
 E[76]="Please enter [Token, Json, API] value:"
 C[76]="请输入 [Token, Json, API] 的值:"
 E[77]="Change preferred domain or IP (sb -d)"
@@ -1422,7 +1422,13 @@ EOF
             "tag": "direct"
         }
     ],
+    "http_clients": [
+        {
+            "tag": "http-client-direct"
+        }
+    ],
     "route":{
+        "default_http_client": "http-client-direct",
         "rule_set": [
             {
                 "tag": "geosite-openai",
@@ -1908,31 +1914,31 @@ menu_setting() {
     [ -s $WORK_DIR/sing-box ] && SING_BOX_VERSION=$($WORK_DIR/sing-box version | awk '/version/{print $NF}' | sed "s@^@Version: &@g")
     [ -x "$(type -p nginx)" ] && NGINX_VERSION=$(nginx -v 2>&1 | sed "s#.*/#Version: #")
 
-    OPTION[1]="1 .  $(text 29)"
+    OPTION[1]="$(printf '%3d.' 1) $(text 29)"
     if [ ${STATUS[0]} = "$(text 28)" ]; then
       [ -n "$ARGO_PID" ] && [ -f "/proc/$ARGO_PID/status" ] && ARGO_MEMORY="$(text 52): $(awk '/VmRSS/{printf "%.1f\n", $2/1024}' /proc/$ARGO_PID/status) MB" || ARGO_MEMORY="$(text 52): N/A"
 
       NGINX_PID=$(awk '/nginx/{print $1}' <<< "$PS_LIST")
       [ -n "$NGINX_PID" ] && [ -f "/proc/$NGINX_PID/status" ] && NGINX_MEMORY="$(text 52): $(awk '/VmRSS/{printf "%.1f\n", $2/1024}' /proc/$NGINX_PID/status) MB" || NGINX_MEMORY="$(text 52): N/A"
-      OPTION[2]="2 .  $(text 27) Argo (sb -a)"
+      OPTION[2]="$(printf '%3d.' 2) $(text 27) Argo (sb -a)"
     else
-      OPTION[2]="2 .  $(text 28) Argo (sb -a)"
+      OPTION[2]="$(printf '%3d.' 2) $(text 28) Argo (sb -a)"
     fi
     if [ ${STATUS[1]} = "$(text 28)" ]; then
       SING_BOX_PID=$(awk '/sing-box run/{print $1}' <<< "$PS_LIST")
       [ -n "$SING_BOX_PID" ] && [ -f "/proc/$SING_BOX_PID/status" ] && SING_BOX_MEMORY="$(text 52): $(awk '/VmRSS/{printf "%.1f\n", $2/1024}' /proc/$SING_BOX_PID/status) MB" || SING_BOX_MEMORY="$(text 52): N/A"
-      OPTION[3]="3 .  $(text 27) Sing-box (sb -s)"
+      OPTION[3]="$(printf '%3d.' 3) $(text 27) Sing-box (sb -s)"
     else
-      OPTION[3]="3 .  $(text 28) Sing-box (sb -s)"
+      OPTION[3]="$(printf '%3d.' 3) $(text 28) Sing-box (sb -s)"
     fi
-    OPTION[4]="4 .  $(text 30)"
-    OPTION[5]="5 .  $(text 77)"
-    OPTION[6]="6 .  $(text 31)"
-    OPTION[7]="7 .  $(text 32)"
-    OPTION[8]="8 .  $(text 33)"
-    OPTION[9]="9 .  $(text 51)"
-    OPTION[10]="10.  $(text 58)"
-    OPTION[11]="11.  $(text 64)"
+    OPTION[4]="$(printf '%3d.' 4) $(text 30)"
+    OPTION[5]="$(printf '%3d.' 5) $(text 77)"
+    OPTION[6]="$(printf '%3d.' 6) $(text 31)"
+    OPTION[7]="$(printf '%3d.' 7) $(text 32)"
+    OPTION[8]="$(printf '%3d.' 8) $(text 33)"
+    OPTION[9]="$(printf '%3d.' 9) $(text 51)"
+    OPTION[10]="$(printf '%3d.' 10) $(text 58)"
+    OPTION[11]="$(printf '%3d.' 11) $(text 64)"
 
     ACTION[1]() { export_list; }
     [[ ${STATUS[0]} = "$(text 28)" ]] &&
@@ -1963,12 +1969,12 @@ menu_setting() {
     ACTION[11]() { bash <(wget --no-check-certificate -qO- https://tcp.hy2.sh/); exit; }
 
   else
-    OPTION[1]="1.  $(text 74)"
-    OPTION[2]="2.  $(text 34)"
-    OPTION[3]="3.  $(text 32)"
-    OPTION[4]="4.  $(text 51)"
-    OPTION[5]="5.  $(text 58)"
-    OPTION[6]="6.  $(text 64)"
+    OPTION[1]="$(printf '%3d.' 1) $(text 74)"
+    OPTION[2]="$(printf '%3d.' 2) $(text 34)"
+    OPTION[3]="$(printf '%3d.' 3) $(text 32)"
+    OPTION[4]="$(printf '%3d.' 4) $(text 51)"
+    OPTION[5]="$(printf '%3d.' 5) $(text 58)"
+    OPTION[6]="$(printf '%3d.' 6) $(text 64)"
 
     ACTION[1]() { fast_install_variables; install_sba; export_list; create_shortcut; exit;}
     ACTION[2]() { install_sba; export_list; create_shortcut; exit; }
@@ -1978,7 +1984,7 @@ menu_setting() {
     ACTION[6]() { bash <(wget --no-check-certificate -qO- https://tcp.hy2.sh/); exit; }
   fi
 
-  [ "${#OPTION[@]}" -ge '10' ] && OPTION[0]="0 .  $(text 35)" || OPTION[0]="0.  $(text 35)"
+  OPTION[0]="$(printf '%3d.' 0) $(text 35)"
   ACTION[0]() { exit; }
 }
 
