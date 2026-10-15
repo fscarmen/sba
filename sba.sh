@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 
 # 当前脚本版本号
-VERSION='1.1.8 (2026.08.22)'
+VERSION='1.1.9 (2026.10.15)'
 
 # 各变量默认值，Github 反代加速代理，第一个为空相当于直连
-GITHUB_PROXY=('' 'https://v6.gh-proxy.org/' 'https://gh-proxy.com/' 'https://hub.glowp.xyz/' 'https://proxy.vvvv.ee/' 'https://ghproxy.lvedong.eu.org/')
+GITHUB_PROXY=('' 'https://ghproxy.lvedong.eu.org/' 'https://accel.cloudflare.nyc.mn/')
 WS_PATH_DEFAULT='sba'
 WORK_DIR='/etc/sba'
 TEMP_DIR='/tmp/sba'
@@ -13,7 +13,7 @@ CDN_DOMAIN=("skk.moe" "ip.sb" "time.is" "cfip.xxxxxxxx.tk" "bestcf.top" "cdn.202
 SUBSCRIBE_TEMPLATE="https://raw.githubusercontent.com/fscarmen/client_template/main"
 NGINX_PORT='3010'
 METRICS_PORT='3014'
-DEFAULT_NEWEST_VERSION='1.14.0-beta.17'
+DEFAULT_NEWEST_VERSION='1.15.0-alpha.12'
 
 export DEBIAN_FRONTEND=noninteractive
 
@@ -23,8 +23,8 @@ mkdir -p $TEMP_DIR
 
 E[0]="Language:\n 1. English (default) \n 2. 简体中文"
 C[0]="${E[0]}"
-E[1]="1. Download robustness: Added integrity validation and retry for sing-box downloads, preventing aborts on incomplete downloads (e.g. gzip/tar errors); 2. Dynamic WARP account: install now registers a fresh WARP account with fallback to the shared account on failure; 3. Silent OpenRC output: hide OpenRC start/stop process messages, showing only the final result."
-C[1]="1. 下载健壮性增强：为 sing-box 下载增加完整性校验与重试，避免下载不完整导致 gzip/tar 报错退出; 2. 动态获取 WARP 账户：安装时动态注册新 WARP 账户，注册失败回退共享账户）; 3. 静默 OpenRC 输出：隐藏 OpenRC 启停过程信息，仅展示最终结果"
+E[1]="1. Fix occasional empty version detection when checking for sing-box updates, which could abort installation or upgrade; the version is now read from the lightweight releases.atom feed first, with the GitHub API and DEFAULT_NEWEST_VERSION as fallbacks, so an empty version no longer aborts install or upgrade; 2. Enable readline line editing on interactive inputs: ← / → move the cursor, Home / End and Ctrl+A / Ctrl+E jump to line start / end, Ctrl+W deletes the previous word, Ctrl+U clears to line start, Ctrl+K deletes to line end, Ctrl+Y undoes the last deletion, Ctrl+L clears the screen; editing keys are no longer inserted into the value; 3. Make the uninstall path fully offline: [sb -u] no longer runs CDN detection, so it completes immediately on hosts that cannot reach GitHub; 4. update GitHub proxy CDN endpoints"
+C[1]="1. 修复检测 sing-box 更新时偶尔取不到最新版本号、导致安装或升级中断的问题；改为优先从体积很小的 releases.atom 获取，github api 与 DEFAULT_NEWEST_VERSION 作为兜底，取不到版本号导致安装或升级中断的问题不再发生; 2. 交互输入启用 readline 行编辑：← / → 移动光标，Home / End 与 Ctrl+A / Ctrl+E 跳到行首 / 行尾，Ctrl+W 删除光标前一个词，Ctrl+U 清空到行首，Ctrl+K 删除到行尾，Ctrl+Y 撤销上一次删除，Ctrl+L 清屏；方向键等编辑键不再被当作内容插入输入值; 3. 卸载流程完全离线化：[sb -u] 不再执行 CDN 探测，GitHub 不可达时也能立即完成卸载; 4. 更换 GitHub 代理与 CDN 加速节点"
 E[2]="Project to create Argo tunnels and Sing-box specifically for VPS, detailed:[https://github.com/fscarmen/sba]\n Features:\n\t • Allows the creation of Argo tunnels via Token, Json and ad hoc methods. User can easily obtain the json at https://fscarmen.cloudflare.now.cc .\n\t • Extremely fast installation method, saving users time.\n\t • Support system: Ubuntu, Debian, CentOS, Alpine and Arch Linux 3.\n\t • Support architecture: AMD,ARM and s390x\n"
 C[2]="本项目专为 VPS 添加 Argo 隧道及 Sing-Box,详细说明: [https://github.com/fscarmen/sba]\n 脚本特点:\n\t • 允许通过 Token, Json 及 临时方式来创建 Argo 隧道,用户通过以下网站轻松获取 json: https://fscarmen.cloudflare.now.cc\n\t • 极速安装方式,大大节省用户时间\n\t • 智能判断操作系统: Ubuntu 、Debian 、CentOS 、Alpine 和 Arch Linux,请务必选择 LTS 系统\n\t • 支持硬件结构类型: AMD 和 ARM\n"
 E[3]="Input errors up to 5 times.The script is aborted."
@@ -205,7 +205,20 @@ warning() { echo -e "\033[31m\033[01m$*\033[0m"; }  # 红色
 error() { echo -e "\033[31m\033[01m$*\033[0m" && exit 1; } # 红色
 info() { echo -e "\033[32m\033[01m$*\033[0m"; }   # 绿色
 hint() { echo -e "\033[33m\033[01m$*\033[0m"; }   # 黄色
-reading() { read -rp "$(info "$1")" "$2"; }
+# readline 需要用 SOH / STX 包裹不可打印的 ANSI 转义才会算对光标位置，配色与 info 保持一致
+INFO_PROMPT_HEAD=$'\001\033[32m\033[01m\002'
+INFO_PROMPT_TAIL=$'\001\033[0m\002'
+# 交互终端下启用 readline 行编辑：方向键移动光标、Home / End、Ctrl+A / Ctrl+E / Ctrl+W / Ctrl+U / Ctrl+K / Ctrl+Y / Ctrl+L；
+# 退格与 Ctrl+U 在原实现下本就可用。stdin / stdout 非终端时（管道、脚本调用）保持原 read 语义
+reading() {
+  local prompt
+  if [[ -t 0 ]]; then
+    printf -v prompt '%b' "$1"
+    read -er -p "$INFO_PROMPT_HEAD$prompt$INFO_PROMPT_TAIL" "$2"
+  else
+    read -rp "$(info "$1")" "$2"
+  fi
+}
 
 # text <index>：输出当前语言对应的字符串，含 $ 变量的条目用 eval 展开，其余直接 printf
 text() {
@@ -511,12 +524,12 @@ check_install() {
   fi
 
   # 下载所需文件
-  [[ ${STATUS[0]} = "$(text 26)" ]] && [ ! -s $WORK_DIR/cloudflared ] &&
+  [[ ${STATUS[0]} = "$(text 26)" ]] && [ ! -s $WORK_DIR/cloudflared ] && [ "$IS_UNINSTALL" != 'is_uninstall' ] &&
   {
     wget --no-check-certificate -qO $TEMP_DIR/cloudflared ${GH_PROXY}https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-$ARGO_ARCH >/dev/null 2>&1
     chmod +x $TEMP_DIR/cloudflared >/dev/null 2>&1
   }&
-  [[ ${STATUS[1]} = "$(text 26)" ]] && [ ! -s $WORK_DIR/sing-box ] &&
+  [[ ${STATUS[1]} = "$(text 26)" ]] && [ ! -s $WORK_DIR/sing-box ] && [ "$IS_UNINSTALL" != 'is_uninstall' ] &&
   {
     local SING_BOX_LATEST=$(get_sing_box_version)
     # 直接使用文件路径，避免引入过多变量；有 gzip 则快速预校验，没有也不强制安装，由 tar 解压退出码兜底
@@ -683,18 +696,18 @@ check_system_ip() {
 
 # 获取 sing-box 最新版本
 get_sing_box_version() {
+  local FORCE_VERSION RESULT_VERSION
   # FORCE_VERSION 用于在 sing-box 某个主程序出现 bug 时，强制为指定版本，以防止运行出错
-  local FORCE_VERSION=$(wget --no-check-certificate --tries=2 --timeout=3 -qO- ${GH_PROXY}https://raw.githubusercontent.com/fscarmen/sing-box/refs/heads/main/force_version | sed 's/^[vV]//g; s/\r//g')
+  FORCE_VERSION=$(wget --no-check-certificate --tries=2 --timeout=3 -qO- "${GH_PROXY}https://raw.githubusercontent.com/fscarmen/sing-box/refs/heads/main/force_version" 2>&1 | sed 's/^[vV]//g; s/\r//g')
   if grep -q '.' <<< "$FORCE_VERSION"; then
-    local RESULT_VERSION="$FORCE_VERSION"
+    RESULT_VERSION="$FORCE_VERSION"
   else
-    # 先判断 github api 返回 http 状态码是否为 200，有时候 IP 会被限制，导致获取不到最新版本
-    local API_RESPONSE=$(wget --no-check-certificate --server-response --tries=2 --timeout=3 -qO- "${GH_PROXY}https://api.github.com/repos/SagerNet/sing-box/releases" 2>&1 | grep -E '^[ ]+HTTP/|tag_name')
-    if grep -q 'HTTP.* 200' <<< "$API_RESPONSE"; then
-      local VERSION_LATEST=$(awk -F '["v-]' '/tag_name/{print $5}' <<< "$API_RESPONSE" | sort -Vr | sed -n '1p')
-      local RESULT_VERSION=$(wget --no-check-certificate --tries=2 --timeout=3 -qO- ${GH_PROXY}https://api.github.com/repos/SagerNet/sing-box/releases | awk -F '["v]' -v var="tag_name.*$VERSION_LATEST" '$0 ~ var {print $5; exit}')
-    else
-      local RESULT_VERSION="$DEFAULT_NEWEST_VERSION"
+    # 取最新版本（含 alpha / beta / rc 等预发布版）：releases.atom → 失败则 GitHub API → 仍失败则 DEFAULT_NEWEST_VERSION
+    RESULT_VERSION=$(wget --no-check-certificate --tries=2 --timeout=3 -qO- "${GH_PROXY}https://github.com/SagerNet/sing-box/releases.atom" 2>&1 | sed -n '/alternate/ s#.*/tag/v\([^"]\+\)".*#\1#gp' | sort -Vr | sed -n '1p')
+
+    if grep -q '^$' <<< "$RESULT_VERSION"; then
+      RESULT_VERSION=$(wget --no-check-certificate --tries=2 --timeout=3 -qO- "${GH_PROXY}https://api.github.com/repos/SagerNet/sing-box/releases" 2>&1 | awk -F '["v]' '/"tag_name"/ {print $5}' | sort -Vr | sed -n '1p')
+      grep -q '^$' <<< "$RESULT_VERSION" && RESULT_VERSION="$DEFAULT_NEWEST_VERSION"
     fi
   fi
   echo "$RESULT_VERSION"
@@ -1886,7 +1899,7 @@ uninstall() {
   if [ -d ${WORK_DIR} ]; then
     [ -s ${ARGO_DAEMON_FILE} ] && cmd_systemctl disable argo &>/dev/null
     [ -s ${SINGBOX_DAEMON_FILE} ] && cmd_systemctl disable sing-box &>/dev/null
-    sleep 1
+    sleep 0.5
     [[ -s ${WORK_DIR}/nginx.conf && "$(ps -ef | grep -c '[n]ginx')" = 0 ]] && reading "\n $(text 59) " REMOVE_NGINX
     [ "${REMOVE_NGINX,,}" = 'y' ] && ${PACKAGE_UNINSTALL[int]} nginx >/dev/null 2>&1
     [ "$SYSTEM" = 'CentOS' ] && firewall_configuration close
@@ -2090,7 +2103,13 @@ menu() {
   fi
 }
 
-check_cdn
+# 卸载是纯本地操作：-U / -u 时置位，作为下方所有网络动作的总开关
+# 首尾补空格并用 [[:space:]] 锚定，避免长参数中含 -U 时被误判
+[[ " ${*^^} " =~ [[:space:]]-U([[:space:]]|$) ]] && IS_UNINSTALL='is_uninstall'
+
+# 卸载是纯本地操作：跳过 CDN 探测，保证离线 / 弱网下立即进入卸载
+# 注：运行统计为后台执行不阻塞卸载，必须与守卫分开成行
+[ "$IS_UNINSTALL" != 'is_uninstall' ] && check_cdn
 statistics_of_run-times update sba.sh 2>/dev/null
 
 # 传参
