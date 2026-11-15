@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # 当前脚本版本号
-VERSION='1.1.9 (2026.11.12)'
+VERSION='1.1.9 (2026.11.15)'
 
 # 各变量默认值，Github 反代加速代理，第一个为空相当于直连
 GITHUB_PROXY=('' 'https://ghproxy.lvedong.eu.org/' 'https://accel.cloudflare.nyc.mn/')
@@ -14,6 +14,7 @@ SUBSCRIBE_TEMPLATE="https://raw.githubusercontent.com/fscarmen/client_template/m
 NGINX_PORT='3010'
 METRICS_PORT='3014'
 DEFAULT_NEWEST_VERSION='1.15.0-alpha.13'
+IP_API_NODES=('https://ip.cloudflare.now.cc' 'https://ip.cloudflare.nyc.mn')
 
 export DEBIAN_FRONTEND=noninteractive
 
@@ -673,25 +674,55 @@ check_brutal() {
 check_system_ip() {
   [ "$L" = 'C' ] && local IS_CHINESE='?lang=zh-CN'
   local DEFAULT_LOCAL_INTERFACE4=$(ip -4 route show default | awk '/default/ {for (i=0; i<NF; i++) if ($i=="dev") {print $(i+1); exit}}')
-  local DEFAULT_LOCAL_INTERFACE6=$(ip -6 route show default | awk '/default/ {for (i=0; i<NF; i++) if ($i=="dev") {print $(i+1); exit}}')
-  if [ -n "${DEFAULT_LOCAL_INTERFACE4}${DEFAULT_LOCAL_INTERFACE6}" ]; then
+  # 无对应协议族默认路由时跳过探测，避免 wget 空等满超时；两族并行，族内主备串行
+  if [ -n "$DEFAULT_LOCAL_INTERFACE4" ]; then
     local DEFAULT_LOCAL_IP4=$(ip -4 addr show $DEFAULT_LOCAL_INTERFACE4 | sed -n 's#.*inet \([^/]\+\)/[0-9]\+.*global.*#\1#gp')
-    local DEFAULT_LOCAL_IP6=$(ip -6 addr show $DEFAULT_LOCAL_INTERFACE6 | sed -n 's#.*inet6 \([^/]\+\)/[0-9]\+.*global.*#\1#gp')
     [ -n "$DEFAULT_LOCAL_IP4" ] && local BIND_ADDRESS4="--bind-address=$DEFAULT_LOCAL_IP4"
-    [ -n "$DEFAULT_LOCAL_IP6" ] && local BIND_ADDRESS6="--bind-address=$DEFAULT_LOCAL_IP6"
+    {
+      local NODE RESULT4
+      for NODE in "${IP_API_NODES[@]}"; do
+        RESULT4=$(wget $BIND_ADDRESS4 -4 -qO- --no-check-certificate --tries=1 --timeout=2 ${NODE}${IS_CHINESE})
+        grep -q '"ip"' <<< "$RESULT4" && {
+          echo "$RESULT4" > $TEMP_DIR/ip4.json
+          break
+        }
+      done
+    }&
   fi
 
-  local IP4_JSON=$(wget $BIND_ADDRESS4 -4 -qO- --no-check-certificate --tries=2 --timeout=2 https://ip.cloudflare.now.cc${IS_CHINESE}) &&
+  local DEFAULT_LOCAL_INTERFACE6=$(ip -6 route show default | awk '/default/ {for (i=0; i<NF; i++) if ($i=="dev") {print $(i+1); exit}}')
+  if [ -n "$DEFAULT_LOCAL_INTERFACE6" ]; then
+    local DEFAULT_LOCAL_IP6=$(ip -6 addr show $DEFAULT_LOCAL_INTERFACE6 | sed -n 's#.*inet6 \([^/]\+\)/[0-9]\+.*global.*#\1#gp')
+    [ -n "$DEFAULT_LOCAL_IP6" ] && local BIND_ADDRESS6="--bind-address=$DEFAULT_LOCAL_IP6"
+    {
+      local NODE RESULT6
+      for NODE in "${IP_API_NODES[@]}"; do
+        RESULT6=$(wget $BIND_ADDRESS6 -6 -qO- --no-check-certificate --tries=1 --timeout=2 ${NODE}${IS_CHINESE})
+        grep -q '"ip"' <<< "$RESULT6" && {
+          echo "$RESULT6" > $TEMP_DIR/ip6.json
+          break
+        }
+      done
+    }&
+  fi
+
+  wait
+
+  [ -s $TEMP_DIR/ip4.json ] &&
+  local IP4_JSON=$(cat $TEMP_DIR/ip4.json) &&
   WAN4=$(awk -F '"' '/"ip"/{print $4}' <<< "$IP4_JSON") &&
   COUNTRY4=$(awk -F '"' '/"country"/{print $4}' <<< "$IP4_JSON") &&
   EMOJI4=$(awk -F '"' '/"emoji"/{print $4}' <<< "$IP4_JSON") &&
-  ASNORG4=$(awk -F '"' '/"isp"/{print $4}' <<< "$IP4_JSON")
+  ASNORG4=$(awk -F '"' '/"isp"/{print $4}' <<< "$IP4_JSON") &&
+  rm -f $TEMP_DIR/ip4.json
 
-  local IP6_JSON=$(wget $BIND_ADDRESS6 -6 -qO- --no-check-certificate --tries=2 --timeout=2 https://ip.cloudflare.now.cc${IS_CHINESE}) &&
+  [ -s $TEMP_DIR/ip6.json ] &&
+  local IP6_JSON=$(cat $TEMP_DIR/ip6.json) &&
   WAN6=$(awk -F '"' '/"ip"/{print $4}' <<< "$IP6_JSON") &&
   COUNTRY6=$(awk -F '"' '/"country"/{print $4}' <<< "$IP6_JSON") &&
   EMOJI6=$(awk -F '"' '/"emoji"/{print $4}' <<< "$IP6_JSON") &&
-  ASNORG6=$(awk -F '"' '/"isp"/{print $4}' <<< "$IP6_JSON")
+  ASNORG6=$(awk -F '"' '/"isp"/{print $4}' <<< "$IP6_JSON") &&
+  rm -f $TEMP_DIR/ip6.json
 }
 
 # 获取 sing-box 最新版本
